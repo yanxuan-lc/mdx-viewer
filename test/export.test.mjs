@@ -15,6 +15,7 @@ import { join, dirname, resolve } from "node:path";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(__dirname, "..");
 const FIXTURE = join(REPO, "test", "fixtures", "export-sample.mdx");
+const { version: PKG_VERSION } = JSON.parse(readFileSync(join(REPO, "package.json"), "utf8"));
 
 let outDir, outHtml, html;
 
@@ -38,8 +39,10 @@ test("导出产物生成且体积合理", () => {
   assert.ok(html.includes("Export Sample"), "应含正文标题");
 });
 
-test("版本注入：落款含 1.0.0", () => {
-  assert.ok(html.includes("1.0.0"), "__MDXV_VERSION__ 应注入为 1.0.0");
+test("版本注入：落款含 package.json 版本", () => {
+  // 版本经 vite define 注入为 JS 字符串字面量（运行时渲染，不进静态 DOM）；
+  // 用带引号形态锚定，避免命中 5MB 产物里别处偶然出现的同形版本串。
+  assert.ok(html.includes(`"${PKG_VERSION}"`), `__MDXV_VERSION__ 应注入为 ${PKG_VERSION}`);
 });
 
 test("frontmatter 落款字段：包含作者、日期时间、版权方与 Footer", () => {

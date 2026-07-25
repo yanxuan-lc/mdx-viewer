@@ -349,7 +349,7 @@ html, body {
 /* ---------- Figure / Diagram ---------- */
 .mv-figure { margin: 1.4rem 0; text-align: center; }
 .mv-figure figcaption { font-size: .85rem; color: var(--muted); margin-top: .5rem; }
-.mv-diagram { color: var(--ink); overflow-x: auto; }
+.mv-diagram { color: var(--ink); overflow-x: auto; text-align: center; } /* svg 默认 inline，居中靠外壳 text-align */
 .mv-diagram svg { max-width: 100%; height: auto; }
 .mv-diagram pre.mermaid { background: none; border: 0; padding: 0; text-align: center; }
 
@@ -442,7 +442,30 @@ body.mv-nav-locked { overflow: hidden; }
 .mv-render-error { color: var(--danger); padding: 24px; white-space: pre-wrap; }
 
 /* ---------- 图全屏查看 ---------- */
+.mv-diagram { position: relative; }
 .mv-zoom-btn { position: absolute; top: 6px; right: 6px; opacity: 0; transition: opacity .15s;
-  width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--border);
-  background: var(--surface); cursor: pointer; color: var(--ink-2); }
-.mv-diagram:hover .mv-zoom-btn { opacity: 1; }
+  width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 6px; border: 1px solid var(--border);
+  background: var(--surface); cursor: pointer; color: var(--ink-2); z-index: 2; }
+.mv-zoom-btn:hover { border-color: var(--accent); color: var(--accent); }
+.mv-diagram:hover .mv-zoom-btn, .mv-zoom-btn:focus-visible { opacity: 1; }
+@media (hover: none) { .mv-zoom-btn { opacity: 1; } } /* 触屏无 hover：常显 */
+
+.mv-zoom-overlay { position: fixed; inset: 0; z-index: 60;
+  background: color-mix(in srgb, var(--bg) 82%, #000);
+  animation: mv-zoom-fade .18s ease; }
+@keyframes mv-zoom-fade { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .mv-zoom-overlay { animation: none; } }
+.mv-zoom-stage { position: absolute; inset: 0; overflow: hidden; cursor: grab; touch-action: none; }
+.mv-zoom-stage.mv-grabbing { cursor: grabbing; }
+.mv-zoom-canvas { position: absolute; top: 0; left: 0; will-change: transform; } /* 只平移，缩放交给 SVG 内在尺寸 → 放大不失真 */
+.mv-zoom-canvas svg { max-width: none !important; display: block; }
+.mv-zoom-toolbar { position: fixed; top: 16px; right: 16px; z-index: 61; display: flex; gap: 4px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 5px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, .18); }
+.mv-zoom-toolbar button { width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;
+  border: 0; border-radius: 6px; background: transparent; color: var(--ink-2); cursor: pointer; }
+.mv-zoom-toolbar button:hover { background: var(--surface-2); color: var(--accent); }
+.mv-zoom-hint { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 61;
+  font-size: .8rem; color: var(--muted); background: var(--surface); border: 1px solid var(--border);
+  border-radius: 999px; padding: 5px 14px; box-shadow: 0 4px 16px rgba(0, 0, 0, .12); white-space: nowrap; }

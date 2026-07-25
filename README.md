@@ -24,6 +24,22 @@ self-contained, offline HTML file. Built on the official `@mdx-js` + Vite + Reac
 
 ## Install
 
+### From npm (recommended)
+
+```bash
+npm install -g mdx-viewer   # global: provides mdxv (preview) & mdxx (export)
+mdxv demo                   # open the bundled component gallery
+```
+
+Or run once without installing:
+
+```bash
+npx -p mdx-viewer mdxv doc.mdx    # preview
+npx -p mdx-viewer mdxx doc.mdx    # export self-contained HTML
+```
+
+### From source
+
 ```bash
 make install       # install deps (= npm install)
 make link          # optional: register mdxv / mdxx globally

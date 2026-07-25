@@ -18,6 +18,22 @@
 
 ## 安装
 
+### 从 npm 安装(推荐)
+
+```bash
+npm install -g mdx-viewer   # 全局安装,提供 mdxv(预览)与 mdxx(导出)
+mdxv demo                   # 打开内置组件总览示例
+```
+
+或不安装、一次性运行:
+
+```bash
+npx -p mdx-viewer mdxv doc.mdx    # 预览
+npx -p mdx-viewer mdxx doc.mdx    # 导出自包含 HTML
+```
+
+### 从源码安装
+
 ```bash
 make install       # 装依赖(= npm install)
 make link          # 可选:全局注册 mdxv / mdxx 命令

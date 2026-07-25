@@ -40,6 +40,9 @@ function themeSvg(svg) {
     .replace(/stroke="black"/g, 'stroke="currentColor"')
     .replace(/fill="black"/g, 'fill="currentColor"')
     .replace(/fill="#000000"/gi, 'fill="currentColor"')
+    // Graphviz 会在 <g id="graph0" class="graph"> 后铺一张白色整图背景多边形，
+    // 剥掉它让 dot 图与 mermaid/svg 一样透明（用 id 锚定，不影响 `svg` 车道的作者原图）。
+    .replace(/(<g id="graph0"[^>]*class="graph"[^>]*>\s*)<polygon\s+fill="(?:white|#ffffff)"[^>]*\/>/i, "$1")
     .replace(/(<svg\b)/, '$1 style="max-width:100%;height:auto"');
 }
 

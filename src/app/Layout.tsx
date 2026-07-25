@@ -3,7 +3,7 @@
    frontmatter 驱动：主题 / 配色 / 自动 Hero / TOC / 落款。
    ============================================================ */
 import React from "react";
-import { Sun, Moon, Monitor, Menu, X, ChevronRight } from "lucide-react";
+import { Sun, Moon, Monitor, Menu, X, ChevronRight, Plus, Minus, Maximize2 } from "lucide-react";
 import { MDXProvider } from "@mdx-js/react";
 import { mdxComponents } from "./mdx-components";
 import { Hero, resetSectionIds } from "./components/blocks";
@@ -17,6 +17,13 @@ export type NavFile = { rel: string; abs: string; dir: string; familyRel?: strin
 
 const COLLAPSE_KEY = "mv-nav-collapsed";
 const NAV_OPEN_KEY = "mv-nav-open"; // 抽屉开关：sessionStorage 记忆，跨切文件的整页刷新保留
+
+const ZOOM_MIN = 0.1;
+const ZOOM_MAX = 8;
+const clampZoom = (v: number) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, v));
+// 注入到每个 .mv-diagram 的放大按钮图标（DOM 直接创建，用不了 lucide React 组件，内联 maximize-2）。
+const MAXIMIZE_ICON =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>';
 
 /** 顶栏标题：frontmatter.title 优先，缺失时用文件名（去扩展名）兜底。 */
 function docTitle(fm: FM, currentDoc?: string): string {
@@ -231,6 +238,172 @@ function Toc({ dep }: { dep?: any }) {
   );
 }
 
+/**
+ * 图表全屏预览：给每个 .mv-diagram 注入放大按钮，点击后在全屏遮罩里展示该图的 SVG，
+ * 支持滚轮缩放（以光标为锚点）、拖拽平移、工具栏 +/−/适应窗口、Esc / 点空白 / 关闭按钮退出。
+ * 图在编译期是静态 HTML（mermaid 客户端渲染后内部才成 SVG），故按钮挂在 wrapper 上，
+ * SVG 在点击那一刻现取，天然规避 mermaid 的异步时序。
+ */
+function DiagramZoom({ dep }: { dep: any }) {
+  const { t } = usePreferences();
+  const [source, setSource] = React.useState<SVGSVGElement | null>(null);
+  const stageRef = React.useRef<HTMLDivElement>(null);
+  const canvasRef = React.useRef<HTMLDivElement>(null);
+  const view = React.useRef({ scale: 1, tx: 0, ty: 0 });
+  const nat = React.useRef({ w: 0, h: 0 }); // 图的自然尺寸（取自 viewBox）
+
+  // 幂等注入放大按钮；文档或语言变化时补建 / 刷新无障碍标签。
+  React.useEffect(() => {
+    const label = t("diagram.zoom");
+    document.querySelectorAll<HTMLElement>(".mv-diagram").forEach((d) => {
+      let btn = d.querySelector<HTMLButtonElement>(":scope > .mv-zoom-btn");
+      if (!btn) {
+        btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "mv-zoom-btn";
+        btn.innerHTML = MAXIMIZE_ICON;
+        d.appendChild(btn);
+      }
+      btn.setAttribute("aria-label", label);
+      btn.title = label;
+    });
+  }, [dep, t]);
+
+  // 委托点击：命中任一放大按钮 → 取所在图的 SVG 打开遮罩。
+  React.useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      const btn = (e.target as HTMLElement | null)?.closest?.(".mv-zoom-btn");
+      if (!btn) return;
+      const diagram = btn.closest(".mv-diagram");
+      // 排除按钮自身的图标 <svg>，取图的真身。
+      const svg = diagram && [...diagram.querySelectorAll("svg")].find((s) => !s.closest(".mv-zoom-btn"));
+      if (svg) setSource(svg as unknown as SVGSVGElement);
+    };
+    document.addEventListener("click", onClick);
+    return () => document.removeEventListener("click", onClick);
+  }, []);
+
+  // 缩放靠给 SVG 设内在像素尺寸（矢量重渲，任意倍数都清晰），平移靠 translate（GPU 平滑）。
+  const apply = React.useCallback(() => {
+    const { scale, tx, ty } = view.current;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const svg = canvas.firstElementChild as SVGElement | null;
+    if (svg) {
+      svg.style.width = `${nat.current.w * scale}px`;
+      svg.style.height = `${nat.current.h * scale}px`;
+    }
+    canvas.style.transform = `translate(${tx}px, ${ty}px)`;
+  }, []);
+
+  // 适应窗口：按自然尺寸算居中缩放，填满约 92% 视口——小图放大、大图缩小，都取「最合适」的尺寸。
+  const fit = React.useCallback(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    const { w, h } = nat.current;
+    if (!w || !h) return;
+    const s = stage.getBoundingClientRect();
+    const scale = clampZoom(Math.min((s.width * 0.92) / w, (s.height * 0.92) / h));
+    view.current = { scale, tx: (s.width - w * scale) / 2, ty: (s.height - h * scale) / 2 };
+    apply();
+  }, [apply]);
+
+  // 以某个视口锚点为不动点缩放（滚轮用光标、按钮用中心）。
+  const zoomAt = React.useCallback((factor: number, ax: number, ay: number) => {
+    const v = view.current;
+    const next = clampZoom(v.scale * factor);
+    const k = next / v.scale;
+    v.tx = ax - (ax - v.tx) * k;
+    v.ty = ay - (ay - v.ty) * k;
+    v.scale = next;
+    apply();
+  }, [apply]);
+
+  const zoomByCenter = React.useCallback((factor: number) => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    const r = stage.getBoundingClientRect();
+    zoomAt(factor, r.width / 2, r.height / 2);
+  }, [zoomAt]);
+
+  // 打开时克隆 SVG、适应窗口、锁滚动，并绑定滚轮 / 拖拽（wheel 需非 passive 才能 preventDefault）。
+  React.useLayoutEffect(() => {
+    if (!source) return;
+    const stage = stageRef.current, canvas = canvasRef.current;
+    if (!stage || !canvas) return;
+    const clone = source.cloneNode(true) as SVGSVGElement;
+    clone.removeAttribute("style");
+    // 自然尺寸优先取 viewBox（矢量、单位干净）；缺失时回退到实测。
+    const vb = source.viewBox?.baseVal;
+    if (vb && vb.width && vb.height) nat.current = { w: vb.width, h: vb.height };
+    else { const r = source.getBoundingClientRect(); nat.current = { w: r.width || 1, h: r.height || 1 }; }
+    canvas.replaceChildren(clone);
+    fit();
+    document.body.classList.add("mv-nav-locked");
+
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const r = stage.getBoundingClientRect();
+      zoomAt(Math.exp(-e.deltaY * 0.0015), e.clientX - r.left, e.clientY - r.top);
+    };
+    let drag: { x: number; y: number; moved: boolean; onBg: boolean } | null = null;
+    const onDown = (e: PointerEvent) => {
+      if (e.button !== 0) return;
+      drag = { x: e.clientX, y: e.clientY, moved: false, onBg: e.target === stage };
+      try { stage.setPointerCapture(e.pointerId); } catch { /* 非活动指针（如合成事件） */ }
+      stage.classList.add("mv-grabbing");
+    };
+    const onMove = (e: PointerEvent) => {
+      if (!drag) return;
+      const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+      if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true;
+      view.current.tx += dx;
+      view.current.ty += dy;
+      drag.x = e.clientX;
+      drag.y = e.clientY;
+      apply();
+    };
+    const onUp = (e: PointerEvent) => {
+      const d = drag;
+      drag = null;
+      stage.classList.remove("mv-grabbing");
+      try { stage.releasePointerCapture(e.pointerId); } catch { /* 已释放 */ }
+      if (d && !d.moved && d.onBg) setSource(null); // 点击空白处关闭
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setSource(null); };
+
+    stage.addEventListener("wheel", onWheel, { passive: false });
+    stage.addEventListener("pointerdown", onDown);
+    stage.addEventListener("pointermove", onMove);
+    stage.addEventListener("pointerup", onUp);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      stage.removeEventListener("wheel", onWheel);
+      stage.removeEventListener("pointerdown", onDown);
+      stage.removeEventListener("pointermove", onMove);
+      stage.removeEventListener("pointerup", onUp);
+      document.removeEventListener("keydown", onKey);
+      document.body.classList.remove("mv-nav-locked");
+    };
+  }, [source, fit, apply, zoomAt]);
+
+  if (!source) return null;
+  return (
+    <div className="mv-zoom-overlay" role="dialog" aria-modal="true" aria-label={t("diagram.zoom")}>
+      <div className="mv-zoom-stage" ref={stageRef}>
+        <div className="mv-zoom-canvas" ref={canvasRef} onDoubleClick={fit} />
+      </div>
+      <div className="mv-zoom-toolbar">
+        <button onClick={() => zoomByCenter(1.25)} aria-label={t("diagram.zoomIn")} title={t("diagram.zoomIn")}><Plus size={16} /></button>
+        <button onClick={() => zoomByCenter(0.8)} aria-label={t("diagram.zoomOut")} title={t("diagram.zoomOut")}><Minus size={16} /></button>
+        <button onClick={fit} aria-label={t("diagram.reset")} title={t("diagram.reset")}><Maximize2 size={16} /></button>
+        <button onClick={() => setSource(null)} aria-label={t("nav.close")} title={t("nav.close")} autoFocus><X size={16} /></button>
+      </div>
+      <div className="mv-zoom-hint">{t("diagram.hint")}</div>
+    </div>
+  );
+}
+
 export function Layout({ frontmatter = {}, children, dir, currentDoc, navFiles = [], initialLocale, localeSource, initialPreferences, onLocaleChange, localizeDocument }: React.PropsWithChildren<{ frontmatter?: FM; dir?: boolean; currentDoc?: string; navFiles?: NavFile[]; initialLocale?: "zh-CN" | "en-US"; localeSource?: "argument" | "environment" | "system" | "fallback"; initialPreferences?: InitialPreferences; onLocaleChange?: (locale: "zh-CN" | "en-US") => void; localizeDocument?: (document: string) => string | undefined }>) {
   const fm = frontmatter || {};
   React.useLayoutEffect(() => {
@@ -284,6 +457,7 @@ export function Layout({ frontmatter = {}, children, dir, currentDoc, navFiles =
         <div className="mv-md">{children}</div>
       </main>
       {fm.toc === true && <Toc dep={currentDoc} />}
+      <DiagramZoom dep={currentDoc} />
       {!chromeOff && (
         <div className="mv-footwrap">
           {fm.footer && <Footer>{fm.footer}</Footer>}

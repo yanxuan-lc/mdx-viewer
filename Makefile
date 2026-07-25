@@ -7,7 +7,7 @@ MK := $(firstword $(MAKEFILE_LIST))
 FILE ?= examples/demo.mdx
 ARGS ?=
 
-.PHONY: help install link demo view export test test-unit test-export publish publish-dry clean
+.PHONY: help install link demo view export test test-unit test-export test-e2e publish publish-dry clean
 
 ## ---- general ----
 install: ## 安装依赖（首次）
@@ -27,7 +27,7 @@ export: install ## 导出自包含 HTML：make export FILE=<file> [OUT=out.html]
 	node bin/mdxx.mjs $(FILE) $(OUT)
 
 ## ---- test ----
-test: install ## 跑全部测试（单元 + 集成 + 导出冒烟）
+test: install ## 跑全部 node 测试（单元 + 集成 + 导出冒烟，不含 e2e）
 	npm test
 
 test-unit: install ## 只跑单元 + 集成（快，无 vite 构建）
@@ -35,6 +35,9 @@ test-unit: install ## 只跑单元 + 集成（快，无 vite 构建）
 
 test-export: install ## 只跑导出自包含冒烟（含 vite 构建，较慢）
 	npm run test:export
+
+test-e2e: install ## 跑 Playwright 端到端（首次需 npx playwright install）
+	npm run test:e2e
 
 ## ---- release ----
 publish: install ## 发布到 npmjs（版本核验 + 门控 + 读 .env token）
@@ -57,7 +60,7 @@ help: ## 列出所有可用命令（按职责分组）
 			run)      title="run      — 预览 / 导出"; \
 			          pat="^(demo|view|export):" ;; \
 			test)     title="test     — 测试"; \
-			          pat="^(test|test-unit|test-export):" ;; \
+			          pat="^(test|test-unit|test-export|test-e2e):" ;; \
 			release)  title="release  — 发布"; \
 			          pat="^(publish|publish-dry):" ;; \
 			maintain) title="maintain — 清理"; \

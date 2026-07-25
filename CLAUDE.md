@@ -65,7 +65,7 @@ Agent 里硬做。表中为能力摘要，具体行为以各 agent 定义为准�
 ## Claude Code 在本项目中的注意事项
 
 - **不自动 commit / push**：仅在用户明确要求时提交。
-- **当前目录尚未 `git init`**：如需版本管理，先初始化仓库并让用户确认，再谈提交。
+- **默认工作分支 `dev`**：`main` 只用于发布；不要直接往 `main` 提交或 push。
 - **保持双端渲染一致**：`src/mdx/plugins.mjs` 与 `src/cli/vite-config.mjs` 由 view 与 build
   共用；改其一要确认 `mdxv`（dev）与 `mdxx`（导出）两条路径都仍正确。
 - **自包含是硬约束**：导出产物不得引任何 CDN / 外链；新增资源须能被内联，改动后核实零外链。

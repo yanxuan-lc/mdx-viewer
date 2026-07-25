@@ -106,7 +106,7 @@ guide.en-US.mdx       # 英文变体
 
 `Hero` `Section` `Callout` `Card` `Columns` `Toggle` `Steps`/`Step` `Stats`/`Stat`
 `Fields`/`Field` `Scenario`/`When`/`And`/`Then` `Grid`/`Item`(可筛选) `Badge` `Figure`
-`Math` `Code`。样式只用语义参数(`tone`/`ratio`/`status`),不写颜色值。
+`Math` `Code` `Footer` `Colophon`。样式只用语义参数(`tone`/`ratio`/`status`),不写颜色值。
 
 **扩展新组件(OCP)**:在 `src/app/components/blocks.tsx` 写一个 React 组件,在
 `src/app/mdx-components.tsx` 的映射表加一行即可,核心渲染管线无需改动。
@@ -121,21 +121,40 @@ guide.en-US.mdx       # 英文变体
 | `mermaid` | 客户端渲染,主题跟随明暗 | 用到才载入 |
 | `svg` | 原样内联 | 零运行时 |
 
+每张图悬停会出现放大按钮,点击进入**全屏预览**:光标锚定滚轮缩放、拖拽平移、缩放/适配/关闭
+工具栏,Esc 或点遮罩退出。缩放改的是 SVG 固有尺寸而非 CSS transform,任意倍率都保持矢量清晰。
+`mdxv` 预览与 `mdxx` 导出产物中都可用。
+
 ## Frontmatter 字段
 
-`title` `subtitle` `author`(必填) `org` `copyright` `datetime`（`yyyy-MM-dd HH:mm:ss`）`footer`
-`palette`(indigo/teal/rose/amber/lime) `mode`(light/dark/auto) `density`(comfortable/compact)
-`toc` `hero`(false 关自动 Hero) `chrome`(off 关头尾+落款)。
+所有字段均为可选,提供才渲染。
+
+`title` `eyebrow` `subtitle` `author` `org` `copyright` `datetime`（`yyyy-MM-dd HH:mm:ss`）`footer`
+`palette`(indigo/teal/rose/amber/lime) `mode`(light/dark/auto —— 只是**初始**主题,工具栏按钮
+可覆盖并持久化) `density`(comfortable/compact) `toc`(设 `true` 才显示)
+`hero`(false 关自动 Hero) `chrome`(off 关头尾+落款)。
+
+`toc: true` 渲染右侧固定目录,但它在**视口窄于 1700px 时会隐藏**以免压住正文——普通笔记本屏幕上
+看不到是正常的。
+
+`datetime` 不会自动生成:落款显示的就是 frontmatter 里写的值,预览与导出都一样。只有版权年份
+（`© <年份>`）取自当前日期。
 
 ## 目录结构
 
 ```
 bin/          mdxv.mjs(预览)· mdxx.mjs(导出)
 src/
-  cli/        入参解析 · Vite 配置 · 虚拟模块插件
+  cli/        入参解析 · Vite 配置 · 虚拟模块插件 ·
+              CLI 语言判定 · 文档语言变体 · 终端输出
   mdx/        编译插件清单 · 图三车道 rehype 插件
-  app/        React 应用:Layout · 组件库 · theme.css · MDXProvider 映射
+  i18n/       支持的 locale · 产品文案目录(只放产品字符串)
+  app/        React 应用:Layout · 组件库 · theme.css ·
+              MDXProvider 映射 · 偏好(语言 / 主题)
+demo/         index.mdx · index.zh-CN.mdx —— 随包组件总览示例
 examples/     demo.mdx · guide/intro.md
+test/         node --test 测试(单元 / 集成 / 导出冒烟)
+e2e/          Playwright spec + fixtures
 ```
 
 ## 架构要点
@@ -147,17 +166,21 @@ examples/     demo.mdx · guide/intro.md
 
 ## 测试
 
-用 Node 内置 `node --test` —— **零第三方测试依赖**。`test/` 下三层:
+`test/` 用 Node 内置 `node --test` —— **零第三方测试依赖**;界面行为放在 `e2e/`,由 Playwright
+驱动(唯一的 devDependency)。
 
 ```bash
-make test          # 全部(单元 + 集成 + 导出冒烟)
+make test          # 全部 node 测试(单元 + 集成 + 导出冒烟,不含 e2e)
 make test-unit     # 快:纯逻辑 + MDX 编译管线(无 vite 构建)
 make test-export   # 导出自包含冒烟(真实 vite 构建,约 7s)
+make test-e2e      # Playwright 端到端(首次需 npx playwright install)
 ```
 
-- **单元** —— `src/cli/resolve.mjs`(`resolveInput` / `scanTree` / `pickDefaultDoc`),fixture 在临时目录现建现清。
+- **单元** —— 入参解析、文档语言变体、locale 与文案取词、CLI 语言优先级、终端输出格式化、
+  本地文档链接解析;fixture 在临时目录现建现清。
 - **集成** —— 用官方 `@mdx-js/mdx` 的 `compile()` 跑 `mdxOptions()`,断言 frontmatter / GFM / 数学 / 高亮 / 图三车道均生效。
 - **导出冒烟** —— 跑真实 `mdxx`,断言产物零外链、base64 内联。
+- **e2e** —— 语言 / 主题偏好及其持久化、本地化文档变体、空态与错误态。
 
 ## 环境要求
 

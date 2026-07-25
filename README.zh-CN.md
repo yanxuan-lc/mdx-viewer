@@ -187,6 +187,16 @@ make test-e2e      # Playwright 端到端(首次需 npx playwright install)
 Node ≥ 20(ESM)。CLI 侧为纯 `.mjs`,Node 直接执行,无编译步骤;浏览器应用为 `.tsx`,由
 Vite 转译,无独立 tsc 步骤。
 
+## 如何贡献
+
+本项目的开发**完全基于 VibeCoding**：所有落地代码都由 AI Agent 依据一份已提交的 spec 写成，经人类
+审查，跑在 [ExcaliVibe](https://github.com/yanxuan-lc/excalivibe) 能力套件上。每个非平凡变更都连同
+它的 `openspec/changes/<id>/` 留痕一起落地，因此「需求是什么、决策是什么、哪些门禁过了」始终可审。
+
+不跑 Agent 也能参与——一个说清楚的 issue 就是一等贡献，因为流程正是从这份 brief 开始的。
+[CONTRIBUTING.zh-CN.md](./CONTRIBUTING.zh-CN.md) 讲清了环境准备、研发闭环、项目红线（官方 MDX
+兼容、零外链导出）以及提 PR 前应有的验证。
+
 ## 许可证
 
 [MIT](./LICENSE) © yanxuan-lc

@@ -206,6 +206,19 @@ make test-e2e      # Playwright end-to-end (first run: npx playwright install)
 Node ≥ 20 (ESM). The CLI side is plain `.mjs`, run directly by Node with no build step; the browser
 app is `.tsx`, transpiled by Vite with no separate tsc step.
 
+## Contributing
+
+This project is developed entirely by **VibeCoding**: shipped code is written by AI agents working
+from a committed spec, under human review, using the
+[ExcaliVibe](https://github.com/yanxuan-lc/excalivibe) capability suite. Every non-trivial change
+lands together with its `openspec/changes/<id>/` trail, so what was asked, what was decided and
+which gates passed all stay reviewable.
+
+You do not need to run an agent to take part — a precise issue is a first-class contribution,
+because it is the brief the pipeline starts from.
+[CONTRIBUTING.md](./CONTRIBUTING.md) covers setup, the development loop, the project's red lines
+(official MDX compatibility, zero-external-link export) and the verification expected before a PR.
+
 ## License
 
 [MIT](./LICENSE) © yanxuan-lc

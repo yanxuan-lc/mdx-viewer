@@ -26,12 +26,12 @@
   --gap: 24px;
   --content-width: 1200px;
 
-  /* 中性色（light 默认）：温暖、低饱和的原浆纸基底 */
-  --bg: #f7f3e8;
-  --surface: #fffaf0;
-  --surface-2: #f1eadb;
-  --muted-bg: #e9e1d1;
-  --border: #ddd2be;
+  /* 中性色（light 默认）：温暖、低饱和的米色纸基底（比原浆纸更浅、更少黄） */
+  --bg: #f8f6f0;
+  --surface: #fffdf8;
+  --surface-2: #f1eee5;
+  --muted-bg: #ebe6da;
+  --border: #e0dacd;
   --ink: #29271f;
   --ink-2: #4b473b;
   --muted: #6d6759;

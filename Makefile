@@ -7,7 +7,7 @@ MK := $(firstword $(MAKEFILE_LIST))
 FILE ?= examples/demo.mdx
 ARGS ?=
 
-.PHONY: help install link demo view export test test-unit test-export clean
+.PHONY: help install link demo view export test test-unit test-export publish publish-dry clean
 
 ## ---- general ----
 install: ## 安装依赖（首次）
@@ -36,6 +36,13 @@ test-unit: install ## 只跑单元 + 集成（快，无 vite 构建）
 test-export: install ## 只跑导出自包含冒烟（含 vite 构建，较慢）
 	npm run test:export
 
+## ---- release ----
+publish: install ## 发布到 npmjs（版本核验 + 门控 + 读 .env token）
+	./scripts/publish.sh
+
+publish-dry: install ## 发布演练（npm publish --dry-run，不真正发布/打 tag）
+	DRY_RUN=1 ./scripts/publish.sh
+
 ## ---- maintain ----
 clean: ## 删除 node_modules 与导出的 .html 产物（不含 examples/demo 源码）
 	rm -rf node_modules
@@ -43,7 +50,7 @@ clean: ## 删除 node_modules 与导出的 .html 产物（不含 examples/demo �
 
 help: ## 列出所有可用命令（按职责分组）
 	@printf "\n\033[1mmdx-viewer — make targets\033[0m\n"
-	@for group in general run test maintain; do \
+	@for group in general run test release maintain; do \
 		case "$$group" in \
 			general)  title="general  — 安装 / 注册"; \
 			          pat="^(help|install|link):" ;; \
@@ -51,6 +58,8 @@ help: ## 列出所有可用命令（按职责分组）
 			          pat="^(demo|view|export):" ;; \
 			test)     title="test     — 测试"; \
 			          pat="^(test|test-unit|test-export):" ;; \
+			release)  title="release  — 发布"; \
+			          pat="^(publish|publish-dry):" ;; \
 			maintain) title="maintain — 清理"; \
 			          pat="^clean:" ;; \
 		esac; \

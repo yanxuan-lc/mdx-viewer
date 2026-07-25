@@ -5,3 +5,5 @@ dist/
 .playwright-mcp/
 test-results/
 playwright-report/
+.env
+.env.*

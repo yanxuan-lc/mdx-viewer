@@ -1,0 +1,81 @@
+{
+  "name": "mdx-viewer",
+  "version": "1.0.0",
+  "description": "Local MDX renderer: `mdxv <file|dir>` previews in the browser, `mdxx <file>` exports a self-contained offline HTML. Built on official @mdx-js + Vite + React — 100% MDX syntax compatible, components extensible.",
+  "type": "module",
+  "license": "MIT",
+  "author": "yanxuan-lc <yanxuan.lc@gmail.com>",
+  "keywords": [
+    "mdx",
+    "markdown",
+    "viewer",
+    "renderer",
+    "cli",
+    "react",
+    "vite",
+    "offline",
+    "self-contained",
+    "documentation",
+    "katex",
+    "mermaid",
+    "shiki"
+  ],
+  "homepage": "https://github.com/yanxuan-lc/mdx-viewer#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yanxuan-lc/mdx-viewer.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yanxuan-lc/mdx-viewer/issues"
+  },
+  "bin": {
+    "mdxv": "bin/mdxv.mjs",
+    "mdxx": "bin/mdxx.mjs"
+  },
+  "files": [
+    "bin",
+    "src",
+    "demo",
+    "LICENSE",
+    "README.md",
+    "README.zh-CN.md"
+  ],
+  "scripts": {
+    "dev": "node bin/mdxv.mjs",
+    "build:html": "node bin/mdxx.mjs",
+    "test": "node --test test/*.test.mjs",
+    "test:unit": "node --test test/resolve.test.mjs test/mdx-pipeline.test.mjs",
+    "test:export": "node --test test/export.test.mjs",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "@fontsource-variable/source-serif-4": "^5.3.0",
+    "@hpcc-js/wasm": "^2.22.4",
+    "@mdx-js/react": "^3.1.0",
+    "@mdx-js/rollup": "^3.1.0",
+    "cac": "^6.7.14",
+    "hast-util-from-html": "^2.0.3",
+    "katex": "^0.16.11",
+    "lucide-react": "^0.468.0",
+    "mermaid": "^11.4.1",
+    "open": "^10.1.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "rehype-katex": "^7.0.1",
+    "rehype-pretty-code": "^0.14.0",
+    "remark-frontmatter": "^5.0.0",
+    "remark-gfm": "^4.0.0",
+    "remark-math": "^6.0.0",
+    "remark-mdx-frontmatter": "^5.0.0",
+    "shiki": "^1.24.0",
+    "unist-util-visit": "^5.0.0",
+    "vite": "^6.0.3",
+    "vite-plugin-singlefile": "^2.1.0"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.61.1"
+  }
+}

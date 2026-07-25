@@ -137,7 +137,9 @@ test("S7: Recover from damaged or unavailable LocalStorage", async ({ page }) =>
 });
 
 test("S8: Exercise every fixed-message family", async ({ browser }) => {
-  const context = await browser.newContext({ locale: "zh-CN" });
+  // 视口须宽于 theme.css 的 1700px 断点，否则固定定位的 .mv-toc 被 display:none，
+  // 取不到「目录 / Contents」这一条文案。
+  const context = await browser.newContext({ locale: "zh-CN", viewport: { width: 1800, height: 1000 } });
   const page = await context.newPage();
   await clearPreferences(page);
   await openDocument(page);

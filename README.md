@@ -120,7 +120,8 @@ Injected via `MDXProvider`, so authors write `<Callout>` and friends with **no i
 
 `Hero` `Section` `Callout` `Card` `Columns` `Toggle` `Steps`/`Step` `Stats`/`Stat`
 `Fields`/`Field` `Scenario`/`When`/`And`/`Then` `Grid`/`Item` (filterable) `Badge` `Figure`
-`Math` `Code`. Styling uses only semantic props (`tone`/`ratio`/`status`) — no color values.
+`Math` `Code` `Footer` `Colophon`. Styling uses only semantic props (`tone`/`ratio`/`status`) —
+no color values.
 
 **Add a new component (OCP):** write a React component in `src/app/components/blocks.tsx` and
 add one row to the mapping table in `src/app/mdx-components.tsx` — the core render pipeline stays
@@ -136,21 +137,41 @@ Carried by fenced code blocks; the fence language routes to one of three lanes:
 | `mermaid` | client-side render, theme follows light/dark | loaded only when used |
 | `svg` | inlined as-is | zero runtime |
 
+Every diagram gets a hover button that opens a **fullscreen viewer**: cursor-anchored wheel zoom,
+drag-to-pan, a zoom / fit / close toolbar, and Esc or a backdrop click to exit. Zooming scales the
+SVG's intrinsic size rather than applying a CSS transform, so it stays vector-crisp at any
+magnification. Works in both `mdxv` and the `mdxx` export.
+
 ## Frontmatter Fields
 
-`title` `subtitle` `author` (required) `org` `copyright` `datetime` (`yyyy-MM-dd HH:mm:ss`) `footer`
-`palette` (indigo/teal/rose/amber/lime) `mode` (light/dark/auto) `density` (comfortable/compact)
-`toc` `hero` (false disables the auto Hero) `chrome` (off disables header/footer + colophon).
+All fields are optional; each one only renders when provided.
+
+`title` `eyebrow` `subtitle` `author` `org` `copyright` `datetime` (`yyyy-MM-dd HH:mm:ss`) `footer`
+`palette` (indigo/teal/rose/amber/lime) `mode` (light/dark/auto — the *initial* theme; the toolbar
+control overrides it and persists) `density` (comfortable/compact) `toc` (set `true` to show it)
+`hero` (false disables the auto Hero) `chrome` (off disables header/footer + colophon).
+
+`toc: true` renders a fixed right-hand table of contents, which is **hidden below a 1700px-wide
+viewport** so it never overlaps the prose — on a typical laptop screen you will not see it.
+
+`datetime` is never generated for you — the colophon shows exactly what you put in frontmatter, in
+both preview and export. Only the copyright year (`© <year>`) is taken from the current date.
 
 ## Directory Structure
 
 ```
 bin/          mdxv.mjs (preview) · mdxx.mjs (export)
 src/
-  cli/        input resolution · Vite config · virtual-module plugin
+  cli/        input resolution · Vite config · virtual-module plugin ·
+              CLI language · localized-doc families · terminal output
   mdx/        compile plugin list · three-lane diagram rehype plugin
-  app/        React app: Layout · component library · theme.css · MDXProvider mapping
+  i18n/       supported locales · message catalog (product strings only)
+  app/        React app: Layout · component library · theme.css ·
+              MDXProvider mapping · preferences (language / theme)
+demo/         index.mdx · index.zh-CN.mdx — the bundled component gallery
 examples/     demo.mdx · guide/intro.md
+test/         node --test suites (unit / integration / export smoke)
+e2e/          Playwright specs + fixtures
 ```
 
 ## Architecture Notes
@@ -163,17 +184,22 @@ examples/     demo.mdx · guide/intro.md
 
 ## Testing
 
-Uses Node's built-in `node --test` — **zero third-party test dependencies**. Three layers under `test/`:
+`test/` uses Node's built-in `node --test` — **zero third-party test dependencies**. Browser
+behaviour lives in `e2e/`, driven by Playwright (the only devDependency).
 
 ```bash
-make test          # everything (unit + integration + export smoke)
+make test          # all node tests (unit + integration + export smoke; no e2e)
 make test-unit     # fast: pure logic + MDX compile pipeline (no vite build)
 make test-export   # export self-containment smoke (real vite build, ~7s)
+make test-e2e      # Playwright end-to-end (first run: npx playwright install)
 ```
 
-- **unit** — `src/cli/resolve.mjs` (`resolveInput` / `scanTree` / `pickDefaultDoc`), fixtures built in a temp dir.
+- **unit** — input resolution, localized-doc families, locale + message lookup, CLI language
+  precedence, terminal output formatting, and local document links. Fixtures built in a temp dir.
 - **integration** — runs `mdxOptions()` through the official `@mdx-js/mdx` `compile()`, asserting frontmatter / GFM / math / highlighting / the three diagram lanes all fire.
 - **export smoke** — runs the real `mdxx` and asserts the output is zero-external-link and base64-inlined.
+- **e2e** — language / theme preferences and their persistence, localized document variants, and
+  empty / error states.
 
 ## Requirements
 

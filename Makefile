@@ -7,7 +7,7 @@ MK := $(firstword $(MAKEFILE_LIST))
 FILE ?= examples/demo.mdx
 ARGS ?=
 
-.PHONY: help install link demo view export test test-unit test-export test-e2e publish publish-dry clean
+.PHONY: help install link demo view export check-mdx test test-unit test-export test-e2e publish publish-dry clean
 
 ## ---- general ----
 install: ## 安装依赖（首次）
@@ -25,6 +25,9 @@ view: install ## 预览 MDX：make view FILE=<file|dir> [ARGS="--port 5000"]
 
 export: install ## 导出自包含 HTML：make export FILE=<file> [OUT=out.html]
 	node bin/mdxx.mjs $(FILE) $(OUT)
+
+check-mdx: install ## 校验 MDX 能否编译：make check-mdx FILE=<file|dir>
+	node bin/mdxv.mjs --check $(FILE) $(ARGS)
 
 ## ---- test ----
 test: install ## 跑全部 node 测试（单元 + 集成 + 导出冒烟，不含 e2e）
@@ -57,8 +60,8 @@ help: ## 列出所有可用命令（按职责分组）
 		case "$$group" in \
 			general)  title="general  — 安装 / 注册"; \
 			          pat="^(help|install|link):" ;; \
-			run)      title="run      — 预览 / 导出"; \
-			          pat="^(demo|view|export):" ;; \
+			run)      title="run      — 预览 / 导出 / 校验"; \
+			          pat="^(demo|view|export|check-mdx):" ;; \
 			test)     title="test     — 测试"; \
 			          pat="^(test|test-unit|test-export|test-e2e):" ;; \
 			release)  title="release  — 发布"; \

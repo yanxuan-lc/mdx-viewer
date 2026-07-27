@@ -37,6 +37,7 @@ src/
     language.mjs    CLI 语言判定（--lang > MDXV_LANG > 系统 Locale > 兜底）+ CliLanguageError
     localized-docs.mjs  .zh-CN/.en-US 文件族识别（不依赖 Node，预览客户端复用）
     output.mjs      终端呈现：ANSI 着色判定、help/error 格式化
+    compile-check.mjs  --check 的编译校验逻辑（逐篇 compile，不碰流/进程/本地化）
   mdx/
     plugins.mjs     MDX 编译插件清单（兼容性核心）
     diagrams.mjs    dot/mermaid/svg 三车道 rehype 插件
@@ -84,6 +85,7 @@ openspec/           OpenSpec 规格库（非运行时代码）
 | `make link` | `npm link` | 全局注册 `mdxv` / `mdxx` |
 | `make demo` | `mdxv demo` | 打开内置组件总览示例 |
 | `make view FILE=<f\|dir> [ARGS=…]` | `mdxv <f\|dir>` | 预览 |
+| `make check-mdx FILE=<f\|dir> [ARGS=…]` | `mdxv --check <f\|dir>` | 只校验能否编译，不起服务（交付前门禁） |
 | `make export FILE=<f> [OUT=…]` | `mdxx <f>` | 导出自包含 HTML |
 | `make test` | `npm test` | 全部 node 测试（单元 + 集成 + 导出冒烟；**不含 e2e**） |
 | `make test-unit` | `npm run test:unit` | 仅单元 + 集成（快，无 vite 构建） |
@@ -104,6 +106,7 @@ openspec/           OpenSpec 规格库（非运行时代码）
 | `mdxv <dir>` | 以该目录为根，默认打开首篇（优先 README/index） |
 | `mdxv <file> --port <n> --host --no-open` | 端口/监听/不自动开浏览器 |
 | `mdxv <file> --lang <zh-CN\|en-US>` | 指定界面初始语言（优先级：`--lang` > `MDXV_LANG` > 系统 Locale） |
+| `mdxv --check <file\|dir\|demo>` | **编译校验**：逐篇编译并报告，不起服务、不写产物。退出码 `0` 全通过 / `1` 至少一篇失败 / `2` 无法执行校验（用法或输入错误、空文档集）。报告走 stdout，`Error:` 走 stderr |
 | `mdxx <file> [out.html]` | 导出自包含 HTML（`npm run build:html -- <file>` 等价） |
 | `mdxx <file> --lang <zh-CN\|en-US>` | 指定导出页面的初始界面语言 |
 | `mdxv --version` / `--help` | 版本号 / 本地化帮助（两个命令都支持，`src/cli/output.mjs` 渲染） |
@@ -224,3 +227,9 @@ GFM 表格/任务清单/删除线；Shiki 双主题高亮。**改动编译管线
   由 `src/app/preferences.mjs`（纯逻辑）+ `PreferencesProvider.tsx`（Context）承载。
 - **产品文案 vs 作者内容**：`src/i18n/messages.mjs` 只放产品界面字符串；作者写在 MDX 里的内容
   永不进入该目录，也不参与翻译。
+- **编译校验（compile check）**：`mdxv --check` 的动作 —— 用与预览/导出**同一份** `mdxOptions()`
+  逐篇编译文档，只回答「能不能编译」。`format` 由库按扩展名推导（`.md` 不过 MDX 解析器），所以
+  **不可**复用单个 processor（会把 format 钉死成 mdx，令 `.md` 假失败）。
+  通过 **不等于**文档正确：未定义组件、非法属性值、畸形数学属于「能加载但不对」；任何顶层 ESM 语句
+  或 `{…}` 表达式在模块求值 / 渲染期失败属于「根本加载不出来」，两类都不检出。后者连 `mdxx`
+  也只能捕获 build 期子集（specifier 无法解析），求值期子集两条命令都退 0。

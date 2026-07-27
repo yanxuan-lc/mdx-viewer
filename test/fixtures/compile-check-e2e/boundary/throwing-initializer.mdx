@@ -1,0 +1,6 @@
+export const boom = (() => { throw new Error("throwing top-level initializer"); })();
+
+# Throwing top-level initializer
+
+This document's ESM initializer throws when the module is evaluated in the
+browser — compilation itself never runs it, so no compile-time gate can see it.

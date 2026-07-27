@@ -1,0 +1,10 @@
+# Fenced import lines are inert text
+
+This document documents JavaScript. The `import` lines below are inside a
+fenced code block, never top-level ESM statements, so they must not be
+treated as unresolvable imports.
+
+```js
+import Thing from "./does-not-exist.js";
+import Other from "./also-missing.js";
+```

@@ -65,6 +65,8 @@ mdxv doc.mdx           # root at the file's directory, open that file (hot-reloa
 mdxv ./docs            # root at the directory, open the first doc (README/index preferred)
 mdxv doc.mdx --port 5000 --host --no-open
 mdxv doc.mdx --lang zh-CN
+mdxv --check doc.mdx   # compile-check only, no server: exit 0 all passed / 1 a document failed / 2 could not check
+mdxv --check ./docs    # check every .md/.mdx under the directory, one report line each
 mdxx doc.mdx           # export doc.html (self-contained, zero external links, double-click to open)
 mdxx doc.mdx out.html  # specify the output path
 mdxx doc.mdx --lang en-US # choose the exported page's initial UI language
@@ -75,6 +77,13 @@ mdxx doc.mdx --lang en-US # choose the exported page's initial UI language
 the first doc. When the root holds multiple `.md`/`.mdx` files, a left-hand nav appears and relative
 links cross-navigate; with a single doc, no nav is shown. To quickly see what every component looks
 like, just run `mdxv demo`.
+
+`mdxv --check` is the gate to run before handing a document to someone — it is a compile check, so
+a pass means the document **will open**, not that it is correct. It does not detect an undefined
+component, an invalid prop value, or malformed math (all of which load and render wrongly), nor any
+top-level ESM statement or `{…}` expression that fails at module evaluation or render time (which
+stops the document loading at all). Those are examples, not an exhaustive list. An `import` inside a
+fenced code block is inert text, so documents that document JavaScript are unaffected.
 
 The browser UI supports Simplified Chinese and English. Its initial language follows the browser;
 the CLI uses `--lang`, then `MDXV_LANG`, then the system Locale. The toolbar language control and

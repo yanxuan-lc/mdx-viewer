@@ -352,6 +352,29 @@ html, body {
 .mv-diagram { color: var(--ink); overflow-x: auto; text-align: center; } /* svg 默认 inline，居中靠外壳 text-align */
 .mv-diagram svg { max-width: 100%; height: auto; }
 .mv-diagram pre.mermaid { background: none; border: 0; padding: 0; text-align: center; }
+/* dot/svg 车道的语义色：元素自己声明的黑/白不当真色，由 diagrams.mjs 在 hast 层打
+   class，真实颜色值留在这里随主题联动。
+   （「谁都没声明 fill」那一种缺省**不在这里**：它由 diagrams.mjs 在根 <svg> 上补一个
+   表现属性 fill="currentColor"，靠继承流下去。原因是继承输给作者的任何声明，而 class
+   本身就是一条声明、会盖掉作者用继承表达的颜色——连零特异度的 :where() 都救不了，
+   特异度只在声明之间比，继承不参与比较。见 diagrams.mjs 里 applyRootDefaultFill 的注释。）
+   两层特异度，按颜色来源分层（不是随手统一 !important —— 那样会把作者仅通过 SVG
+   内部 <style> 表达的颜色也压过去，见
+   openspec/changes/diagram-theme-adaptation/HYPOTHESIS.md 的硬边界「别动作者
+   故意设的颜色」）：
+   - 无后缀（颜色来自表现属性 fill="black"/stroke="white" 等）：普通类选择器。
+     表现属性优先级为 0，天然输给任何 CSS 规则，不需要 !important——留出空间让
+     作者仅在 SVG 内部 <style> 里表达的颜色仍能按级联规则赢。
+   - `-style`（颜色来自内联 style="fill:black" 等）：!important。内联 style
+     优先级极高，只有 !important 能稳定盖过。 */
+.mv-diagram-fg-fill         { fill: currentColor; }
+.mv-diagram-fg-fill-style   { fill: currentColor !important; }
+.mv-diagram-fg-stroke       { stroke: currentColor; }
+.mv-diagram-fg-stroke-style { stroke: currentColor !important; }
+.mv-diagram-bg-fill         { fill: var(--surface); }
+.mv-diagram-bg-fill-style   { fill: var(--surface) !important; }
+.mv-diagram-bg-stroke       { stroke: var(--surface); }
+.mv-diagram-bg-stroke-style { stroke: var(--surface) !important; }
 
 /* ---------- KaTeX 明暗 ---------- */
 .katex { color: var(--ink); }

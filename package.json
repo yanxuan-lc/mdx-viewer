@@ -44,7 +44,7 @@
     "dev": "node bin/mdxv.mjs",
     "build:html": "node bin/mdxx.mjs",
     "test": "node --test test/*.test.mjs",
-    "test:unit": "node --test test/resolve.test.mjs test/mdx-pipeline.test.mjs test/cli-language.test.mjs test/cli-output.test.mjs test/local-document-links.test.mjs test/locale.test.mjs test/localized-docs.test.mjs test/compile-check.test.mjs test/compile-check.cli.test.mjs",
+    "test:unit": "node --test test/resolve.test.mjs test/mdx-pipeline.test.mjs test/diagram-theme.test.mjs test/cli-language.test.mjs test/cli-output.test.mjs test/local-document-links.test.mjs test/locale.test.mjs test/localized-docs.test.mjs test/compile-check.test.mjs test/compile-check.cli.test.mjs",
     "test:export": "node --test test/export.test.mjs",
     "test:e2e": "playwright test"
   },
@@ -69,6 +69,7 @@
     "remark-mdx-frontmatter": "^5.0.0",
     "shiki": "^1.24.0",
     "unist-util-visit": "^5.0.0",
+    "unist-util-visit-parents": "^6.0.0",
     "vite": "^6.0.3",
     "vite-plugin-singlefile": "^2.1.0"
   },

@@ -228,6 +228,12 @@ because it is the brief the pipeline starts from.
 [CONTRIBUTING.md](./CONTRIBUTING.md) covers setup, the development loop, the project's red lines
 (official MDX compatibility, zero-external-link export) and the verification expected before a PR.
 
+## Changelog
+
+[CHANGELOG.md](./CHANGELOG.md) indexes every release; each entry links to its GitHub release for
+the full prose. Releases that change how existing documents render say so explicitly — see
+0.3.0's "what you may notice" for the shape those notices take.
+
 ## License
 
 [MIT](./LICENSE) © yanxuan-lc

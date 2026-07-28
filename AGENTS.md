@@ -246,6 +246,14 @@ GFM 表格/任务清单/删除线；Shiki 双主题高亮。**改动编译管线
 - **组件 children 里的裸 `{}` / `<`** 会被 MDX 当 JS 表达式 / JSX 解析而报错。要放字面量
   （如 `<Code>` 里的 JSON、含泛型的代码），用 `` {`...`} `` 模板字符串表达式，或改用 Markdown 围栏。
 - **默认工作分支是 `dev`**：`main` 用于发布；不要直接往 `main` 提交。
+- **发布留痕落在两处，别再开第三处**：`CHANGELOG.md` 是索引（每条链到 GitHub Release），
+  GitHub Release 承载完整叙述。`openspec/changes/` 只放在途变更，不要在那里长期存放发布说明。
+  发布时 `package.json` 是唯一版本源（CLI banner、落款、`publish.sh`、导出测试都从它读）；
+  用 `npm version <inc> --no-git-tag-version`，tag 交给 `publish.sh` 在**发布成功后**打，
+  否则 tag 会落在 `dev` 的 bump 提交上而不是 `main` 的合并提交上。
+- **会改变已有文档渲染结果的发布，必须在 Release 说明里单列一节写清**（0.3.0 的
+  "what you may notice" 是范式）：本项目的契约面是 CLI（flag / 退出码 / 输出流）与作者面
+  （组件、组件参数、frontmatter），像素不是契约，但悄悄改掉别人图的样子是最招人烦的一类意外。
 
 ## 术语表
 

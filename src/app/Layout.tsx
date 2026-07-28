@@ -332,7 +332,11 @@ function DiagramZoom({ dep }: { dep: any }) {
     const stage = stageRef.current, canvas = canvasRef.current;
     if (!stage || !canvas) return;
     const clone = source.cloneNode(true) as SVGSVGElement;
-    clone.removeAttribute("style");
+    // 这里以前有一句 `clone.removeAttribute("style")`，已去掉：那时根 <svg> 上的 style 是图
+    // 管线自己注入的（`max-width:100%;height:auto`），删掉没有代价；那条注入已移除，现在
+    // 根上的 style 只可能是**作者写的**（`svg` 车道原样内联作者标记），整条删掉会让全屏里
+    // 丢掉作者样式、与页内观感不一致。也不需要改写它：放大所需的尺寸由下面的 apply() 以
+    // 内联 width/height 写入，`max-width` 由 `.mv-zoom-canvas svg` 的 !important 接管。
     // 自然尺寸优先取 viewBox（矢量、单位干净）；缺失时回退到实测。
     const vb = source.viewBox?.baseVal;
     if (vb && vb.width && vb.height) nat.current = { w: vb.width, h: vb.height };

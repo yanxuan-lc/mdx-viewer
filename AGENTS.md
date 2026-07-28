@@ -37,6 +37,7 @@ src/
     language.mjs    CLI 语言判定（--lang > MDXV_LANG > 系统 Locale > 兜底）+ CliLanguageError
     localized-docs.mjs  .zh-CN/.en-US 文件族识别（不依赖 Node，预览客户端复用）
     output.mjs      终端呈现：ANSI 着色判定、help/error 格式化
+    compile-check.mjs  --check 的编译校验逻辑（逐篇 compile，不碰流/进程/本地化）
   mdx/
     plugins.mjs     MDX 编译插件清单（兼容性核心）
     diagrams.mjs    dot/mermaid/svg 三车道 rehype 插件
@@ -84,6 +85,7 @@ openspec/           OpenSpec 规格库（非运行时代码）
 | `make link` | `npm link` | 全局注册 `mdxv` / `mdxx` |
 | `make demo` | `mdxv demo` | 打开内置组件总览示例 |
 | `make view FILE=<f\|dir> [ARGS=…]` | `mdxv <f\|dir>` | 预览 |
+| `make check-mdx FILE=<f\|dir> [ARGS=…]` | `mdxv --check <f\|dir>` | 只校验能否编译，不起服务（交付前门禁） |
 | `make export FILE=<f> [OUT=…]` | `mdxx <f>` | 导出自包含 HTML |
 | `make test` | `npm test` | 全部 node 测试（单元 + 集成 + 导出冒烟；**不含 e2e**） |
 | `make test-unit` | `npm run test:unit` | 仅单元 + 集成（快，无 vite 构建） |
@@ -104,6 +106,7 @@ openspec/           OpenSpec 规格库（非运行时代码）
 | `mdxv <dir>` | 以该目录为根，默认打开首篇（优先 README/index） |
 | `mdxv <file> --port <n> --host --no-open` | 端口/监听/不自动开浏览器 |
 | `mdxv <file> --lang <zh-CN\|en-US>` | 指定界面初始语言（优先级：`--lang` > `MDXV_LANG` > 系统 Locale） |
+| `mdxv --check <file\|dir\|demo>` | **编译校验**：逐篇编译并报告，不起服务、不写产物。退出码 `0` 全通过 / `1` 至少一篇失败 / `2` 无法执行校验（用法或输入错误、空文档集）。报告走 stdout，`Error:` 走 stderr |
 | `mdxx <file> [out.html]` | 导出自包含 HTML（`npm run build:html -- <file>` 等价） |
 | `mdxx <file> --lang <zh-CN\|en-US>` | 指定导出页面的初始界面语言 |
 | `mdxv --version` / `--help` | 版本号 / 本地化帮助（两个命令都支持，`src/cli/output.mjs` 渲染） |
@@ -152,6 +155,41 @@ devDependency）。两者互不重叠：`npm test` 不跑 e2e，e2e 也不替代
     多边形（按 `id="graph0"` 锚定）使其与 mermaid 一样透明，`svg` 车道的作者原图不动；
   - `mermaid` → 转 `<pre class="mermaid">`，客户端渲染，主题跟随明暗；
   - `svg` → 原样内联。
+- **图内颜色的明暗适配**（`src/mdx/diagrams.mjs`，`dot` 与 `svg` 两车道共用；`mdxv` 与
+  `mdxx` 自动一致）。两种情形**用两种完全不同的机制**，这个区分是这块代码的核心，动它之前
+  先读懂：
+  - **作者显式写了黑/白** → `themeColors` 在 hast 层打语义 class，颜色值只写在 `theme.css`。
+    class 按来源分层：表现属性来源用普通类，内联 `style` 来源才用 `!important`——这样作者在
+    SVG 内部 `<style>` 里写的颜色仍能按级联赢。判定**必须解析成通道值再比较**，不要枚举字面
+    写法（`hsl(0,0%,0%)`、`#000f`、`rgb(0 0 0)` 都是纯黑）；半透明（alpha≠1）一律不动，
+    否则会丢掉 alpha。**非法写法目前仍有几种被判成黑**（如 `rgb(0,0,0,)`、逗号写法里
+    亮度不带 `%` 的 `hsl(0,0%,0)`），这是已知取舍不是保证：浏览器会把非法声明整条丢弃、
+    回落到继承值，而继承到的通常正是我们在根上补的 `currentColor`，肉眼无差；**唯一还会
+    咬人的是「祖先声明了颜色」那一种**。别把这句读成「非法写法一定安全」。
+  - **谁都没声明 `fill`** → `applyRootDefaultFill` 在**根 `<svg>` 上补表现属性
+    `fill="currentColor"`**，靠继承流下去（SVG 里 `fill` 的初始值是黑而非 `currentColor`，
+    这是深色主题下图内文字曾经不可见的根因）。**绝对不要改成给叶子打 class**：继承是级联里
+    最弱的一环、输给作者的任何声明，而 class 是一条声明、会盖掉作者用继承表达的颜色，跟
+    特异度无关（零特异度 `:where()` 也救不了）。踩过两次实测回归：祖先只在 SVG 内部
+    `<style>` 里上色时子级被顶掉；`<use fill="…">` 引用的形状被顶掉。
+  - **两个必须记住的配套约束**：
+    ① `<mask>`/`<clipPath>` 子树不参与语义化（那里的黑白是遮罩**亮度**语义不是颜色，`stroke`
+    同理），并且要在容器上把继承来源钉成**「如果我们从没改过颜色，这里会继承到什么」**——
+    沿祖先链取最近一个作者声明的字面值；`fill` 找不到时回落 SVG 初始值 `black`，`stroke`
+    没有回落值（初始值是 `none`、我们也从不注入）。不能一律钉黑：作者写了
+    `<svg fill="white">` 时那样会把遮罩从「全显示」翻成「全隐藏」；也不能什么都不钉：根上的
+    缺省色（或被我们语义化成 `--surface` 的作者白、`--ink` 的作者黑）会漏进遮罩，让遮罩随
+    主题变形。容器**自身**同样要排除在语义化之外，不然刚钉回的白/黑又被当成语义色改写。
+    **这层隔离是启发式，不是「完全绝缘」**：`ownColor` 看不见 SVG 内部 `<style>` 的规则
+    （hast 层没有选择器匹配），而内部 `<style>` 优先级高于我们注入的表现属性，所以那种情形
+    我们**根本没扰动继承链、钉反而纯倒扣**——因此**同一个根 svg 的内部 `<style>` 里声明过该
+    属性时，这张图里的遮罩一律不钉**。判断只认声明块内部的声明（注释、选择器、值内文本都已
+    排除，作用域按根 svg 隔离），但**不做选择器匹配**，所以与遮罩无关的规则也会让整张图不钉
+    ——偏保守那一侧。要真正闭合得在 hast 层实现 CSS 级联，不在已完成范围内。
+    ② **不要往作者的根 `<svg>` 注入任何 `style`**。响应式宽度由 `theme.css` 的
+    `.mv-diagram svg` 负责（dev 与导出都生效），全屏缩放也不依赖内联声明。历史教训：曾在
+    字符串上再拼一个 `style` 属性，而两个同名属性 HTML 只保留第一个，作者写在根上的 style
+    被静默吃掉。
 - **图表全屏预览**（`src/app/Layout.tsx`）：给每个 `.mv-diagram` 用 DOM 注入放大按钮，点击进
   全屏遮罩，支持光标锚定滚轮缩放、拖拽平移、缩放/适配/关闭工具栏、Esc 与点遮罩退出。缩放改
   SVG 由 `viewBox` 推出的固有 px 尺寸（不是 CSS `transform: scale`），故任意倍率都保持矢量清晰。
@@ -224,3 +262,9 @@ GFM 表格/任务清单/删除线；Shiki 双主题高亮。**改动编译管线
   由 `src/app/preferences.mjs`（纯逻辑）+ `PreferencesProvider.tsx`（Context）承载。
 - **产品文案 vs 作者内容**：`src/i18n/messages.mjs` 只放产品界面字符串；作者写在 MDX 里的内容
   永不进入该目录，也不参与翻译。
+- **编译校验（compile check）**：`mdxv --check` 的动作 —— 用与预览/导出**同一份** `mdxOptions()`
+  逐篇编译文档，只回答「能不能编译」。`format` 由库按扩展名推导（`.md` 不过 MDX 解析器），所以
+  **不可**复用单个 processor（会把 format 钉死成 mdx，令 `.md` 假失败）。
+  通过 **不等于**文档正确：未定义组件、非法属性值、畸形数学属于「能加载但不对」；任何顶层 ESM 语句
+  或 `{…}` 表达式在模块求值 / 渲染期失败属于「根本加载不出来」，两类都不检出。后者连 `mdxx`
+  也只能捕获 build 期子集（specifier 无法解析），求值期子集两条命令都退 0。

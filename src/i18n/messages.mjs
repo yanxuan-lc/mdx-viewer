@@ -61,6 +61,9 @@ export const MESSAGES = Object.freeze({
     "cli.exportSuccess": "{path}  （{size} KB，自包含）",
     "cli.exportFailed": "导出失败：{path}",
     "cli.invalidArguments": "命令参数无效。",
+    "cli.optionCheck": "校验能否编译，不起服务（`mdxv --check <file|dir|demo>`）",
+    "cli.checkBoundaryNote": "--check 只校验编译，不保证文档能加载：任何顶层 ESM 语句或 `{…}` 表达式在模块求值 / 渲染期失败，都会让文档加载不出来而不被本命令发现 —— 例如模块无法解析、标识符未定义、或初始化器自身抛错。这些只是例子，不是清单（围栏代码块里的 import 不受影响，写文档讲 JavaScript 完全正常）。",
+    "cli.checkSummary": "{passed} 通过，{failed} 失败",
   }),
   "en-US": Object.freeze({
     "nav.files": "Files",
@@ -123,5 +126,8 @@ export const MESSAGES = Object.freeze({
     "cli.exportSuccess": "{path}  ({size} KB, self-contained)",
     "cli.exportFailed": "Export failed: {path}",
     "cli.invalidArguments": "Invalid command arguments.",
+    "cli.optionCheck": "Check whether documents compile, without starting a server (`mdxv --check <file|dir|demo>`)",
+    "cli.checkBoundaryNote": "--check verifies compilation only, not that a document can load: any top-level ESM statement or `{...}` expression that fails at module evaluation or render time will keep the document from loading yet go undetected here — for example an unresolvable module, an undefined identifier, or an initializer that itself throws. These are examples, not an exhaustive list (import inside a fenced code block is unaffected — documenting JavaScript works fine).",
+    "cli.checkSummary": "{passed} passed, {failed} failed",
   }),
 });

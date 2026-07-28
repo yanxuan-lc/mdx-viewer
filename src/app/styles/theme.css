@@ -352,6 +352,29 @@ html, body {
 .mv-diagram { color: var(--ink); overflow-x: auto; text-align: center; } /* svg 默认 inline，居中靠外壳 text-align */
 .mv-diagram svg { max-width: 100%; height: auto; }
 .mv-diagram pre.mermaid { background: none; border: 0; padding: 0; text-align: center; }
+/* dot/svg 车道的语义色：元素自己声明的黑/白不当真色，由 diagrams.mjs 在 hast 层打
+   class，真实颜色值留在这里随主题联动。
+   （「谁都没声明 fill」那一种缺省**不在这里**：它由 diagrams.mjs 在根 <svg> 上补一个
+   表现属性 fill="currentColor"，靠继承流下去。原因是继承输给作者的任何声明，而 class
+   本身就是一条声明、会盖掉作者用继承表达的颜色——连零特异度的 :where() 都救不了，
+   特异度只在声明之间比，继承不参与比较。见 diagrams.mjs 里 applyRootDefaultFill 的注释。）
+   两层特异度，按颜色来源分层（不是随手统一 !important —— 那样会把作者仅通过 SVG
+   内部 <style> 表达的颜色也压过去，见
+   openspec/changes/diagram-theme-adaptation/HYPOTHESIS.md 的硬边界「别动作者
+   故意设的颜色」）：
+   - 无后缀（颜色来自表现属性 fill="black"/stroke="white" 等）：普通类选择器。
+     表现属性优先级为 0，天然输给任何 CSS 规则，不需要 !important——留出空间让
+     作者仅在 SVG 内部 <style> 里表达的颜色仍能按级联规则赢。
+   - `-style`（颜色来自内联 style="fill:black" 等）：!important。内联 style
+     优先级极高，只有 !important 能稳定盖过。 */
+.mv-diagram-fg-fill         { fill: currentColor; }
+.mv-diagram-fg-fill-style   { fill: currentColor !important; }
+.mv-diagram-fg-stroke       { stroke: currentColor; }
+.mv-diagram-fg-stroke-style { stroke: currentColor !important; }
+.mv-diagram-bg-fill         { fill: var(--surface); }
+.mv-diagram-bg-fill-style   { fill: var(--surface) !important; }
+.mv-diagram-bg-stroke       { stroke: var(--surface); }
+.mv-diagram-bg-stroke-style { stroke: var(--surface) !important; }
 
 /* ---------- KaTeX 明暗 ---------- */
 .katex { color: var(--ink); }
@@ -459,7 +482,11 @@ body.mv-nav-locked { overflow: hidden; }
 .mv-zoom-stage { position: absolute; inset: 0; overflow: hidden; cursor: grab; touch-action: none; }
 .mv-zoom-stage.mv-grabbing { cursor: grabbing; }
 .mv-zoom-canvas { position: absolute; top: 0; left: 0; will-change: transform; } /* 只平移，缩放交给 SVG 内在尺寸 → 放大不失真 */
-.mv-zoom-canvas svg { max-width: none !important; display: block; }
+/* 全屏里必须解除作者/主题在页内加的尺寸上限，否则 apply() 写的放大尺寸被夹住、图放不大。
+   max-height 与 max-width 一样要解除：`svg` 车道会原样内联作者标记，作者写
+   style="max-height:300px" 时只解 max-width 是不够的（以前克隆后整条 removeAttribute("style")
+   顺手把作者的上限也删了，所以看不出来；那句已去掉——它删的会是作者的样式）。 */
+.mv-zoom-canvas svg { max-width: none !important; max-height: none !important; display: block; }
 .mv-zoom-toolbar { position: fixed; top: 16px; right: 16px; z-index: 61; display: flex; gap: 4px;
   background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 5px;
   box-shadow: 0 8px 30px rgba(0, 0, 0, .18); }

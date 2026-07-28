@@ -1,3 +1,4 @@
+import { relative } from "node:path";
 import { t } from "../i18n/locale.mjs";
 
 /**
@@ -7,6 +8,21 @@ import { t } from "../i18n/locale.mjs";
  */
 export function isColorEnabled({ isTTY = false, env = process.env } = {}) {
   return Boolean(isTTY && env.NO_COLOR === undefined);
+}
+
+/**
+ * Decide colouring for check mode separately per stream it actually writes — the report
+ * (stdout) and the `Error:` diagnostic (stderr) can disagree, e.g. `mdxv --check dir >report
+ * 2>err` where stdout is a file and stderr is still a terminal. Reusing one process-wide
+ * decision would leak ANSI into the captured report.
+ * @param {{stdoutIsTTY?: boolean, stderrIsTTY?: boolean, env?: NodeJS.ProcessEnv}} options terminal environment per stream
+ * @returns {{report: boolean, diagnostic: boolean}} whether each stream may carry ANSI
+ */
+export function resolveCheckColors({ stdoutIsTTY = false, stderrIsTTY = false, env = process.env } = {}) {
+  return {
+    report: isColorEnabled({ isTTY: stdoutIsTTY, env }),
+    diagnostic: isColorEnabled({ isTTY: stderrIsTTY, env }),
+  };
 }
 
 /**
@@ -23,11 +39,12 @@ export function formatHelp({ command, locale }) {
     ["-h, --help", t(locale, "cli.helpHelp")],
     ["-v, --version", t(locale, "cli.helpVersion")],
     ["--lang <locale>", t(locale, "cli.optionLanguage")],
-    ...(isPreview ? [["--port <port>", t(locale, "cli.optionPort")], ["--host", t(locale, "cli.optionHost")], ["--no-open", t(locale, "cli.optionOpen")]] : []),
+    ...(isPreview ? [["--port <port>", t(locale, "cli.optionPort")], ["--host", t(locale, "cli.optionHost")], ["--no-open", t(locale, "cli.optionOpen")], ["--check", t(locale, "cli.optionCheck")]] : []),
   ];
 
   const syntax = isPreview ? "[OPTIONS] <file|dir|demo>" : "[OPTIONS] <file> [output]";
-  return `Usage:\n  ${command} ${syntax}\n\nArguments:\n${formatRows(argumentRows)}\n\nOptions:\n${formatRows(optionRows)}`;
+  const notes = isPreview ? `\n\nNotes:\n  ${t(locale, "cli.checkBoundaryNote")}` : "";
+  return `Usage:\n  ${command} ${syntax}\n\nArguments:\n${formatRows(argumentRows)}\n\nOptions:\n${formatRows(optionRows)}${notes}`;
 }
 
 /**
@@ -70,6 +87,45 @@ export function formatExportSuccess({ locale, version, source, output, size, col
     [t(locale, "cli.fileSizeLabel"), size],
   ];
   return `${formatSuccessHeading(t(locale, "cli.exportReady"), color)}\n${formatStatusRows(rows, color)}\n\n  ${t(locale, "cli.openFileHint")}`;
+}
+
+/**
+ * Render a checked document's path relative to the current working directory, falling
+ * back to the absolute path when the relative form would escape upward — so a consumer
+ * piping the report can always copy-paste it back into a shell.
+ * @param {string} abs absolute document path
+ * @param {string} [cwd] current working directory
+ * @returns {string} relative or absolute path, raw and uncoloured
+ */
+export function formatCheckPath(abs, cwd = process.cwd()) {
+  const rel = relative(cwd, abs);
+  return rel.startsWith("..") ? abs : rel;
+}
+
+/**
+ * Render one `--check` report line: a passing `✓ <path>`, a failure with position
+ * `✗ <path>:<line>:<column>  <reason>`, or — when the compile failure carries no
+ * position — a degraded `✗ <path>  <reason>` with no fabricated `:line:column`.
+ * @param {import("./compile-check.mjs").DocumentCheckResult} result one document's outcome
+ * @param {{cwd?: string, color?: boolean}} [options] presentation context
+ * @returns {string} one report line; colour applies only to the `✓`/`✗` mark
+ */
+export function formatCheckLine(result, { cwd, color = false } = {}) {
+  const path = formatCheckPath(result.abs, cwd);
+  if (result.ok) return `${colorize("✓", "32", color)} ${path}`;
+  const position = result.line !== undefined && result.column !== undefined ? `:${result.line}:${result.column}` : "";
+  return `${colorize("✗", "31", color)} ${path}${position}  ${result.reason}`;
+}
+
+/**
+ * Render the `--check` summary line, printed only when the document set holds more
+ * than one document.
+ * @param {{passed: number, failed: number}} counts aggregate outcome from `checkDocuments`
+ * @param {{locale: "zh-CN" | "en-US"}} options presentation context
+ * @returns {string} localized, uncoloured summary line
+ */
+export function formatCheckSummary({ passed, failed }, { locale }) {
+  return t(locale, "cli.checkSummary", { passed, failed });
 }
 
 /** @param {string[][]} rows @returns {string} aligned CLI rows */

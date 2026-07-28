@@ -1,0 +1,6 @@
+# Throwing expression
+
+This `{…}` expression throws only when React renders it in the browser —
+compilation itself never evaluates it, so no compile-time gate can see it.
+
+<div>{(() => { throw new Error("throwing expression"); })()}</div>

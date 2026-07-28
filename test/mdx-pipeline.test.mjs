@@ -76,11 +76,14 @@ test("代码高亮：rehype-pretty-code(shiki) 生效", async () => {
   assert.ok(js.includes("rehype-pretty-code"), "应含 pretty-code 标记属性");
 });
 
-test("图 · dot 车道：构建期出内联 SVG，黑色描边换 currentColor", async () => {
+test("图 · dot 车道：构建期出内联 SVG，黑色描边打上前景语义色 class", async () => {
   const js = await getCompiled();
   assert.ok(js.includes("mv-diagram-dot"), "应有 dot 车道包裹");
   assert.ok(js.includes('"svg"'), "应生成内联 svg 元素");
-  assert.ok(js.includes("currentColor"), "描边/填充应替换为 currentColor");
+  // 颜色不再是编译产物里的字面 "currentColor"（那是旧字符串 regex 的做法）；
+  // 现在 hast 层只打语义 class，真实颜色值在 theme.css 里随主题联动，
+  // 拼写矩阵与「文字节点缺省 fill」的细节覆盖见 test/diagram-theme.test.mjs。
+  assert.ok(js.includes("mv-diagram-fg-stroke"), "黑色描边应打上前景语义色 class");
 });
 
 test("图 · mermaid 车道：保留源码交客户端渲染", async () => {

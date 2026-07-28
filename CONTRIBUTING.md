@@ -124,6 +124,12 @@ source of truth — this repository is. So when you add or change a component, a
 frontmatter field, that skill's `SKILL.md` and `references/blocks.md` need the same edit afterwards.
 Land it here first; note it in your PR so the framework side gets updated too.
 
+That `≥ 0.2.0` covers the component reference only. The same skill separately **gates its delivery on
+`mdxv --check`** — it refuses to hand over a document that does not compile — and that flag exists
+only from **0.3.0**. So the `--check` CLI contract (its flag name, its exit codes `0` / `1` / `2`, and
+the stdout-report / stderr-`Error:` split) is a cross-repo contract too: changing any of it breaks
+that gate silently, in a repository this one has no visibility into.
+
 ## Verification before you open a PR
 
 ```bash

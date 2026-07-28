@@ -372,6 +372,74 @@ test("svg 车道 · #A4 作者用非黑白颜色声明祖先时也照样钉字�
   assert.equal(findFirst(wrapper, "mask").properties.fill, "#3b82f6", "作者的蓝原样钉进遮罩");
 });
 
+test('svg 车道 · #B22 祖先的声明来自内联 style 时同样要认（此前这条零覆盖，改坏了测试也不红）', async () => {
+  // 复审的变异实验：把 pin 的祖先扫描改成「只看表现属性」，102 条全绿存活，而行为已退回
+  // #A4 的反转（钉 black 而不是 white）。这条按「内联 style 也算声明」的方向钉住。
+  const wrapper = await renderLane("svg", `<svg style="fill:white"><mask id="m"><rect width="10" height="10"/></mask></svg>`);
+  assert.equal(findFirst(wrapper, "mask").properties.fill, "white", "内联 style 与表现属性同样是作者声明");
+});
+
+test("svg 车道 · #A6 stroke 也会漏进遮罩亮度，必须一起钉（描边亮度同样参与遮罩计算）", async () => {
+  // 复审 #A6 实测：`<svg stroke="black">` 时根被打上 fg-stroke → 计算值 currentColor →
+  // 遮罩内描边亮度在浅色下≈黑（挖掉）、深色下≈白（显示），同一份遮罩两个主题形状不同。
+  const wrapper = await renderLane(
+    "svg",
+    `<svg stroke="black"><mask id="m"><rect stroke-width="4" width="10" height="10"/></mask></svg>`,
+  );
+  const mask = findFirst(wrapper, "mask");
+  assert.equal(mask.properties.stroke, "black", "作者的字面 stroke 要钉进遮罩，阻断主题色继承");
+  assert.equal(classesOf(mask).length, 0, "钉回的黑不能反过来被语义化成前景色");
+});
+
+test("svg 车道 · #A6 祖先没声明 stroke 时不要凭空钉——SVG 里 stroke 的初始值是 none，我们也从不注入", async () => {
+  const wrapper = await renderLane("svg", `<svg><mask id="m"><rect width="10" height="10"/></mask></svg>`);
+  const mask = findFirst(wrapper, "mask");
+  assert.equal(mask.properties.stroke, undefined, "没有需要抵消的东西，就不该多写一个属性");
+  assert.equal(mask.properties.fill, "black", "但 fill 有初始值（黑），仍要钉");
+});
+
+test("svg 车道 · #A5 作者用 SVG 内部 <style> 掌控 fill 时，一律不钉（钉了会把遮罩整个反转）", async () => {
+  // 复审 #A5：ownColor 看不见内部 <style>，而内部 <style> 的优先级高于我们注入的表现属性
+  // ——也就是说那种情形下我们根本没扰动继承链，钉反而纯倒扣：实测钉 black 会让遮罩从
+  // 「全显示」翻成「全隐藏」，两个主题都消失。hast 层没有选择器匹配，无法算出正确值，
+  // 所以选择不动作者已用 CSS 掌控住的遮罩（限界写在 diagrams.mjs 的 docblock 里）。
+  const wrapper = await renderLane(
+    "svg",
+    `<svg><style>svg{fill:white}</style><mask id="m"><rect width="10" height="10"/></mask></svg>`,
+  );
+  assert.equal(findFirst(wrapper, "mask").properties.fill, undefined, "不钉，把遮罩留给作者的 CSS");
+});
+
+test("svg 车道 · #A5 内部 <style> 只写了别的属性时，不该被误判成「作者掌控了 fill」", async () => {
+  const wrapper = await renderLane(
+    "svg",
+    `<svg><style>text{font-weight:bold}</style><mask id="m"><rect width="10" height="10"/></mask></svg>`,
+  );
+  assert.equal(findFirst(wrapper, "mask").properties.fill, "black", "与 fill 无关的 <style> 不影响钉");
+});
+
+test('svg 车道 · #A5 判定不能被 `stroke-width` 之类的复合属性名蒙到', async () => {
+  // 关键是让这条能**判别**：祖先真声明了 stroke（所以本该钉），而 <style> 里只有
+  // `stroke-width` 这个别的属性。若判定退化成 `css.includes("stroke")`，就会误以为
+  // 作者用 CSS 掌控着 stroke 而跳过钉，遮罩描边亮度又会随主题变。
+  const wrapper = await renderLane(
+    "svg",
+    `<svg stroke="black"><style>rect{stroke-width:2}</style><mask id="m"><rect width="10" height="10"/></mask></svg>`,
+  );
+  const mask = findFirst(wrapper, "mask");
+  assert.equal(mask.properties.stroke, "black", "stroke-width 不是 stroke，不该让 stroke 的钉被跳过");
+  assert.equal(mask.properties.fill, "black", "fill 分支同样不受影响");
+});
+
+test('dot 车道 · #B25 背景剥离也要走同一套空值处理：style="fill:" 不能盖掉真实的 fill="white"', async () => {
+  const wrapper = await renderLane(
+    "svg",
+    `<svg><g id="graph0" class="graph"><polygon style="fill:" fill="white" points="0,0 9,0 9,9"/></g></svg>`,
+  );
+  const polys = findAll(wrapper, "polygon");
+  assert.equal(polys.length, 0, "空的 style 值不算声明，应认出这是白底并剥掉");
+});
+
 test("svg 车道 · 作者自己在 <mask> 上声明了 fill 时尊重作者，不覆盖", async () => {
   const wrapper = await renderLane("svg", `<svg><mask id="m" fill="white"><rect width="10" height="10"/></mask></svg>`);
   const mask = findFirst(wrapper, "mask");

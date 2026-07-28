@@ -249,40 +249,69 @@ function applyRootDefaultFill(nodes) {
   });
 }
 
-/** 把 `<mask>` / `<clipPath>` 的继承来源钉成**作者原本的字面值**，让遮罩子树完全不受
- *  本文件的任何改写影响。
+/** SVG 内部 `<style>` 里是否出现过 `fill` / `stroke` 声明。
+ *  只做「有没有」的粗判，不解析选择器——hast 层没有 CSS 匹配能力，见下面的限界说明。 */
+function hasInternalStyleFor(nodes, prop) {
+  let found = false;
+  visit({ type: "root", children: nodes }, "element", (node) => {
+    if (found || String(node.tagName).toLowerCase() !== "style") return;
+    let css = "";
+    visit(node, "text", (t) => { css += t.value; });
+    if (new RegExp(`(^|[^-\\w])${prop}\\s*:`, "i").test(css)) found = true;
+  });
+  return found;
+}
+
+/** 把 `<mask>` / `<clipPath>` 的继承来源钉成**作者原本的字面值**，让遮罩子树尽可能不受
+ *  本文件的改写影响。
  *
- *  为什么需要这一步：遮罩里的颜色是**亮度语义**（白 = 显示、黑 = 隐藏），而我们对 fill
+ *  为什么需要这一步：遮罩里的颜色是**亮度语义**（白 = 显示、黑 = 隐藏），而我们对颜色
  *  动了两处手脚，两处都会顺着继承漏进遮罩、把遮罩变成随主题变形的东西：
  *    1. 根上补的缺省 `currentColor`——本该「不写 fill = 黑 = 挖掉」的区域变成前景色，
  *       深色下等于把挖掉的部分又显示出来；
  *    2. 祖先自己声明的黑/白被我们语义化成 `--ink` / `--surface`——**实测踩到的就是这一种**：
  *       `<svg fill="white"><mask><rect/></mask></svg>`，作者的白在根上被换成 `--surface`，
  *       深色下遮罩内容的亮度掉到近 0，被遮元素几乎整个消失（浏览器里量到遮罩内 rect 的
- *       computed fill 是 `rgb(45,40,43)` 而不是白）。
+ *       computed fill 是 `rgb(45,40,43)` 而不是白）。`stroke` 同样会漏（复审 #A6 实测：
+ *       `<svg stroke="black">` 下遮罩内的描边亮度在浅色下≈黑、深色下≈白，同一份遮罩两个
+ *       主题形状不同），所以两个属性都要处理。
  *
- *  所以钉的值不是固定的 black，而是**沿祖先链找最近一个作者声明的字面值，找不到才用 SVG
- *  初始值 black**——等价于「如果我们从没改过 fill，这里会继承到什么」。上面那个例子会钉回
- *  `white`（遮罩照常全显示，明暗两主题一致，与改动前一致），而 `<svg fill="#3b82f6">` 会
- *  钉回蓝色（亮度随作者，我们不评判）。容器自己声明了 fill 时完全不插手。
- *
- *  钉在容器上的这个值必须**不被语义化**，否则刚钉回的 white 立刻又变成 `--surface`——
- *  themeColors 因此连容器自身一起跳过（不只是子树）。
+ *  钉的值是**沿祖先链找最近一个作者声明的字面值**——等价于「如果我们从没改过颜色，这里会
+ *  继承到什么」。`fill` 找不到时回落 SVG 初始值 `black`；`stroke` **没有**回落值（初始值
+ *  就是 `none`、我们也从不注入 stroke，所以只在祖先真声明过时才需要钉）。容器自己声明了
+ *  对应属性时完全不插手。钉上去的值必须**不被语义化**，否则刚钉回的 white 立刻又变成
+ *  `--surface`——themeColors 因此连容器自身一起跳过（不只是子树）。
  *
  *  **这一步必须跑在 applyRootDefaultFill 之前**：等根上补完 currentColor 再看，就分不清
- *  那个 fill 是作者写的还是我们刚写的了。这条顺序约束是真的、有 mutant 守着。 */
-function pinInheritedFillInColorAgnosticContainers(nodes) {
+ *  那个 fill 是作者写的还是我们刚写的了。这条顺序约束是真的、有 mutant 守着。
+ *
+ *  ## 限界（这是启发式，不是「完全绝缘」，别把它当保证）
+ *
+ *  `ownColor` 只看得见表现属性与内联 style，**看不见 SVG 内部 `<style>` 里的规则**——hast
+ *  层没有选择器匹配。而内部 `<style>` 的优先级高于我们注入的表现属性，所以那种情形下我们
+ *  根本没有扰动继承链，钉反而会把作者的遮罩改坏（复审 #A5 实测：`<style>svg{fill:white}</style>`
+ *  时钉 `black` 会让遮罩从「全显示」翻成「全隐藏」，两个主题都消失，纯倒扣）。
+ *  因此：**内部 `<style>` 里出现过该属性时，一律不钉**——宁可放弃抵消我们自己的注入
+ *  （代价：遮罩可能随主题变形），也不去改一个作者已经用 CSS 掌控住的遮罩。这与本改动的
+ *  硬边界一致：别动作者故意设的颜色。真正闭合需要在 hast 层实现 CSS 级联，不在本次范围。 */
+function pinInheritedColorInColorAgnosticContainers(nodes) {
+  const styleControls = { fill: hasInternalStyleFor(nodes, "fill"), stroke: hasInternalStyleFor(nodes, "stroke") };
   visitParents({ type: "root", children: nodes }, "element", (node, ancestors) => {
     if (!isColorAgnosticContainer(node)) return;
-    if (ownColor(node, "fill") !== undefined) return;
-    let inherited = "black"; // SVG 里 fill 的初始值
-    for (let i = ancestors.length - 1; i >= 0; i--) {
-      const a = ancestors[i];
-      if (a.type !== "element") continue;
-      const declared = ownColor(a, "fill");
-      if (declared) { inherited = declared.value; break; }
+    for (const prop of ["fill", "stroke"]) {
+      if (styleControls[prop]) continue;              // 作者用内部 <style> 掌控着，见限界说明
+      if (ownColor(node, prop) !== undefined) continue; // 容器自己声明了，尊重作者
+      // fill 的 SVG 初始值是 black，需要一个回落值；stroke 的初始值是 none 且我们从不注入
+      // stroke，所以只在祖先真声明过时才钉（回落值留空 = 不钉）。
+      let inherited = prop === "fill" ? "black" : undefined;
+      for (let i = ancestors.length - 1; i >= 0; i--) {
+        const a = ancestors[i];
+        if (a.type !== "element") continue;
+        const declared = ownColor(a, prop);
+        if (declared) { inherited = declared.value; break; }
+      }
+      if (inherited !== undefined) (node.properties || (node.properties = {}))[prop] = inherited;
     }
-    (node.properties || (node.properties = {})).fill = inherited;
   });
 }
 
@@ -305,9 +334,10 @@ function pinInheritedFillInColorAgnosticContainers(nodes) {
  */
 function themeColors(nodes) {
   visitParents({ type: "root", children: nodes }, "element", (node, ancestors) => {
-    // 容器自己也要跳过，不只是它的子树：pinInitialFillInColorAgnosticContainers 会在
-    // `<mask>` 上钉一个 fill="black" 把 SVG 初始值找回来，那是遮罩语义而不是颜色，
-    // 若在这里被当成「黑→前景」改写，等于把刚钉回去的初始值又拆掉。
+    // 容器自己也要跳过，不只是它的子树：pinInheritedColorInColorAgnosticContainers 会在
+    // `<mask>` 上钉回「作者原本会继承到的字面值」（没有作者声明时是 SVG 初始值 black），
+    // 那是遮罩亮度语义而不是颜色，若在这里被当成「黑/白→主题色」改写，等于把刚钉回去的
+    // 值又拆掉。
     if (isColorAgnosticContainer(node) || insideColorAgnosticContainer(ancestors)) return;
 
     for (const prop of ["fill", "stroke"]) {
@@ -322,10 +352,12 @@ function themeColors(nodes) {
 }
 
 /** Graphviz 会在 <g id="graph0" class="graph"> 里铺一张白色整图背景多边形；
- *  剥掉它让 dot 图与 mermaid/svg 车道一样透明。这一步必须先于 themeColors
- *  跑（或至少与其独立判断原始写法）——否则这张背景会被通用的「白→背景」
- *  规则接管，变成不透明的纸色矩形，破坏三车道背景透明的既有设计；这里是
- *  结构清理，不是颜色语义化，两者是两件事，故意分开决策。
+ *  剥掉它让 dot 图与 mermaid/svg 车道一样透明。这里是**结构清理**，不是颜色语义化，
+ *  两者是两件事，故意分开决策。
+ *  （早先这里写着「这一步必须先于 themeColors 跑」——**那是错的**，复审实测把两者换序
+ *  后输出逐字节相同：themeColors 只加 class，不改 fill 属性，所以本函数读到的写法不受它
+ *  影响。旧的字符串实现会改写属性，那时约束是真的；改到 hast 层后它就退化了。留这段是
+ *  为了不让下一个人再从那句错误约束里推出别的结论。）
  *  用 id 锚定，不影响 `svg` 车道的作者原图（作者极不会用这个 id+class 组合）。
  *  按「graph0 的直接子节点里所有白色多边形」匹配，而非「紧跟开标签的第一个」
  *  ——具名图（如 `digraph G {...}`）会在两者之间插一个 <title>G</title>，按
@@ -339,8 +371,9 @@ function stripGraphvizBackdrop(nodes) {
     if (!cls.includes("graph")) return;
     g.children = g.children.filter((child) => {
       if (child.type !== "element" || child.tagName !== "polygon") return true;
-      const fillSrc = styleValue(child.properties?.style, "fill") ?? child.properties?.fill;
-      return classify(fillSrc) !== "white";
+      // 走 ownColor 而不是自己拼「style ?? 属性」：那份手写逻辑漏掉了空值处理，
+      // `style="fill:"` 会盖掉后面真实的 fill="white"，于是背景剥不掉、深色下留一张纸色底。
+      return classify(ownColor(child, "fill")?.value) !== "white";
     });
   });
 }
@@ -351,7 +384,7 @@ function svgToHast(svg) {
   stripGraphvizBackdrop(nodes);
   // 这一对的先后是**真约束**（有 mutant 守着）：钉遮罩初始值要判断「祖先链上有没有
   // 作者声明的 fill」，必须在我们自己往根上写 currentColor 之前问，否则问到的是自己。
-  pinInheritedFillInColorAgnosticContainers(nodes);
+  pinInheritedColorInColorAgnosticContainers(nodes);
   applyRootDefaultFill(nodes);
   // themeColors 与上面两步之间没有顺序耦合（它只加 class，不改 fill 属性）。如实说明，
   // 免得下一个人以为这几步是一条强序链——早先一版注释就那么写过，复审实测那条约束

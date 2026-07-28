@@ -72,7 +72,17 @@ ok "$PKG_NAME@$VERSION 尚未发布，可发布"
 step "Git 状态门控"
 if git rev-parse --git-dir >/dev/null 2>&1; then
   BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo '?')"
-  [ "$BRANCH" = "main" ] && ok "分支 = main" || warn "当前分支为 '$BRANCH'（非 main）"
+  # 非 main 一律拦停，而不是只警告一句：默认工作分支是 dev，而 warn 不会中断脚本，
+  # 于是「在 dev 上敲 make publish」就会把未经发布流程的状态直接发到 npm——发布是
+  # 不可逆的，这条是本脚本里最容易踩且最贵的一脚。留 ALLOW_NON_MAIN=1 作为显式逃生口，
+  # 与上面 ALLOW_DIRTY 的写法保持一致。
+  if [ "$BRANCH" = "main" ]; then
+    ok "分支 = main"
+  elif is_on "${ALLOW_NON_MAIN:-}"; then
+    warn "当前分支为 '$BRANCH'（非 main，ALLOW_NON_MAIN=1，放行）"
+  else
+    die "当前分支为 '$BRANCH'，发布只应从 main 进行；请先合并到 main，或设 ALLOW_NON_MAIN=1"
+  fi
 
   if [ -n "$(git status --porcelain)" ]; then
     if is_on "${ALLOW_DIRTY:-}"; then

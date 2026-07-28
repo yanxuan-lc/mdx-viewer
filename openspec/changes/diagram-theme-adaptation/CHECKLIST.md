@@ -1,13 +1,17 @@
 # Code Review Checklist — diagram-theme-adaptation
 
-> ⚠️ **当前有效判定在文末「# Round 4」**。以下 round 1 / round 2 / round 3 段落是历史留痕
-> （#A1、#B1/#B2/#B6 在 round 2 修复；#A2/#A3、#B8/#B9/#B12/#B13 在 round 4 修复），
-> 门禁请读文末 round 4 的 Merge gate 行与 Commit stamp。
+> ⚠️ **当前有效判定在文末「# Round 5」**，**权威 stamp = `ff94bda`**（= 被审 merge-candidate
+> HEAD；`src/` 与 `test/` 工作树与该 commit 逐字节一致，已实测 `git diff --stat ff94bda -- src test`
+> 为空）。以下 round 1 / 2 / 3 / 4 段落是历史留痕，它们各自的 Commit 行记录的是**当时**审的
+> 未提交工作树，**不是**门禁 stamp（#A1、#B1/#B2/#B6 在 round 2 修复；#A2/#A3、#B8/#B9/#B12/#B13
+> 在 round 4 修复；#A4、#B14/#B15/#B16/#B17/#B19 与 OQ-6 在 round 5 修复）。
+> 门禁请读文末 round 5 的 Merge gate 行与 Commit stamp。
 
 - **Mode**: Incremental（merge 前增量审查 / 门禁）
 - **Branch**: `dev`
 - **Commit**: `ce99eabe80fbbe2ee0bebe125196bf2371107ab3` + **未提交工作树**（4 改 + 1 新增测试文件）
-  - ⚠️ 本次改动尚未落 commit。合并前生成真实 commit 后，**必须回来把这一行刷成 merge-candidate HEAD**，否则门禁读到的 stamp 与被合并的代码不是同一份。
+  - ⚠️ **历史 stamp，非门禁 stamp**（round 1 当时审的是未提交工作树）。改动已于 round 5 落成
+    commit `ff94bda`，门禁 stamp 见文首横幅与文末 round 5。
 - **Reviewer model family**: Anthropic Claude（Opus 5）。独立性由控制器分派决定，本 agent 无法自证与实现方是否同族。
 - **Spec 基线**：本变更走 bug 轨道，无 planner 四契约。Verdict A 以 `HYPOTHESIS.md`「修复方向 / 硬边界 / 验收」+ `PIPELINE.md` 的节点与用户语义决策为 code-vs-spec 依据。
 - **验证取样**：`tdd-evidence.md` 的 `npm test` 149/149 stamp 与被审 HEAD 一致 → 按取样策略直接采信，**未触发全量重跑**（无 stamp 失配、无证据缺失、无具体怀疑）。本次自行重跑：`node --test test/diagram-theme.test.mjs test/mdx-pipeline.test.mjs` → **34/34 pass, exit 0**。lint 不存在（无 eslint/prettier/biome 配置、`package.json` 无 lint/format script）—— 已核实，不是采信自述。
@@ -637,3 +641,372 @@ merge-candidate HEAD**；若提交时内容与本轮所审工作树有任何差�
 - **OQ-7（流程）**：`tdd-evidence.md` 是否补齐 round 3/4 的机器事实（#B21）？不补的话，每一轮
   门禁审查都要付一次全量重跑，且 `PIPELINE.md` 的叙述会成为唯一证据来源——那正是取样策略
   要避免的「采信自述」。
+
+---
+
+# Round 5 — 增量审查（**本轮唯一有效判定 / 门禁读这一段**）
+
+- **Mode**: Incremental（merge 前增量审查 / 门禁）。本轮只审 round 5 的 delta：
+  `pinInheritedFillInColorAgnosticContainers`（#A4 的新修法：钉**作者字面继承值**，缺省回落
+  `black`）、`ownColor` 空值不算声明（#B15）、`forEachRootSvg`（#B17）、**`applyRootSizing`
+  整体删除**（OQ-6）、`svgToHast` 次序注释重写（#B14）、导出断言拆分（#B19）、`AGENTS.md`
+  「图内颜色的明暗适配」两条配套约束改写（#B16 + release-coordinator 报的发布阻塞项），
+  以及 `openspec/changes/RELEASE-NOTES-DRAFT.md`（新增文件，本轮首次进入审查范围）。
+  rounds 1–4 已结条目不重复报，状态见下方对照表。
+- **Branch**: `dev`
+- **Commit**: **`ff94bda4a1f7bdec3ca918dba1507dfa43231a24`** ← 门禁比对用这一行（= merge-candidate HEAD）
+  - 产品码与测试**已完全落 commit**：`git diff --stat ff94bda -- src test package.json` 输出为空
+    （实测），即本轮判定针对的就是 `ff94bda` 本身，不再有「未提交工作树」的错位风险。
+  - 仍未提交的只有**文档**：`M AGENTS.md`（本轮的 #B16 修复）+ `?? openspec/changes/RELEASE-NOTES-DRAFT.md`。
+    两者都在本轮审查范围内、都已核对；它们**不改变**门禁 stamp 的含义（不影响运行时行为），
+    但若在提交前又被改动，需重读本文件。
+  - ⚠️ **审查期间工作树被并发改动**（如实记账）：本轮开始时 `git status` 只有上面两项；结束时
+    多出 `M CONTRIBUTING.md` / `M CONTRIBUTING.zh-CN.md` / `M scripts/publish.sh` /
+    `M openspec/changes/mdx-compile-check/{PIPELINE.md,tasks.md}` / `M …/diagram-theme-adaptation/PIPELINE.md`。
+    我**重新验过** `git diff --stat ff94bda -- src test package.json` 仍为空，所以上面的 stamp 断言
+    依然成立；但 **`scripts/publish.sh` 的改动（非 main 分支从 warn 改为 die + `ALLOW_NON_MAIN` 逃生口）
+    不属于本变更的 delta，本轮未审**——它是发布工具链的独立改动，需要自己的审查路径，不要把本文件
+    的 HELD 读成对它的背书。
+- **Reviewer model family**: Anthropic Claude（Opus 5）。独立性由控制器分派决定，本 agent 无法自证
+  与实现方是否同族；**本轮是 merge 门禁（pre-merge），不是 merge 后的 unbiased audit**，跑门禁
+  不等于交付了那一项（后者必须由**不同模型族**在 merge 后抽样执行）。
+- **Spec 基线**：bug 轨道，无 planner 四契约。Verdict A 依据 = `HYPOTHESIS.md`（`:69` 硬边界
+  「别动作者故意设的颜色」+ 修复方向 + 验收）+ `PIPELINE.md` 的用户语义决策（黑→前景 / 白→背景；
+  **OQ-1「祖先继承与 SVG 内部 `<style>` 上色都算作者故意设的颜色」**；OQ-5「#A4 修」；
+  OQ-6「内联尺寸删」）+ round 4 CHECKLIST 的待办条目。
+- **验证取样**：`tdd-evidence.md` **仍停在 round 2**（`grep 227 / ff94bda / "Round 5"` 全部零命中，
+  文件自己在 r5 记账里也承认停在 r2）→ 属取样策略里的「证据缺失」，**第二轮触发全量重跑**：
+  `npm test` → **tests 227 / pass 227 / fail 0 / EXIT=0**（退出码由 `echo EXIT=$?` 直接落盘，
+  不是从 `tail`/`grep` 管道里读的）。lint 仍不存在（无 eslint/prettier/biome 配置文件，
+  `package.json` scripts 只有 `dev build:html test test:unit test:export test:e2e`）——已核实，
+  不是采信自述。
+- **额外自证（不采信自述的部分，全部在 scratchpad 隔离副本上做，仓库未被改动）**：
+  - 19 组结构探针直接喂 `rehypeDiagrams()`（内部 `<style>` 上色 + mask ×2 / 祖先 stroke 黑白 + mask ×2 /
+    嵌套 mask ×3 / clipPath ×2 / 祖先内联 style + mask / 祖先 `currentColor` / 祖先 `fill=""` /
+    裸 `<mask>` / `<div>` 包裹根 / `foreignObject` 内嵌 svg / mask 内嵌 svg / 非图 svg 图标 /
+    Graphviz 背景多边形 ×2）；
+  - 隔离副本基线 `node --test diagram-theme + mdx-pipeline` = **110/110**；
+  - **4 个次序/取值 mutant**：M1 钉遮罩↔补根缺省色换序 → **死（2 条失败）**；
+    M2 `stripGraphvizBackdrop` 移到 `themeColors` 之后 → **活，且探针输出与基线逐字节相同**；
+    M7 `themeColors` 提到最前 → **活，探针输出逐字节相同**；
+    M5 钉遮罩时祖先扫描忽略内联 style 来源 → **活（110/110 全绿），但行为回归成 #A4 的反转**；
+  - 1 个候选修法（#A6 的 stroke 钉法，约 8 行）在隔离副本实现并跑通 → 110/110 全绿（这本身
+    就是覆盖洞的证据）。
+  - **没开浏览器**（本轮要求不起长驻服务）。像素层观感仍只由控制器 r5 的 chrome-devtools 实测承担；
+    我复核的是其可推导性（机制链 + `theme.css` 声明 + 导出产物字面量），四段都对得上。
+
+## Verdict A — Spec-compliance（code-vs-spec，**不是意图校验**）
+
+**Status: HELD**（零未解决 P0/P1；下列 2 条 P2 可带过 merge）
+
+> 本判定只回答「代码是否落实了 `HYPOTHESIS.md` / `PIPELINE.md` 写下的契约与边界」，**不判断
+> 这个修复方向本身是不是用户真正想要的**——那属于人类意图回路，本审查结构上不能替代它。
+
+**round 4 的 #A4 真修好了，而且比我上一轮给的修法正确**（逐条实测，非采信自述）：
+
+- ✅ **#A4 RESOLVED（修法优于本审查上一轮的建议）**。上一轮我建议的是「有作者声明就别钉」——
+  控制器实现后在浏览器里量出第二层：`<svg fill="white">` 的白**本身**会被我们语义化成 `--surface`，
+  于是遮罩内容算出 `rgb(45,40,43)`。这一层我上一轮没看出来（我只推理了「钉不钉」，没推理
+  「钉的那个源头也被我们改了」），控制器的量测抓住了它，**如实记账：这是我的漏判**。
+  最终修法「钉最近的作者字面声明、缺省回落 `black`」我逐条实测正确：
+  | 输入 | 钉进 `<mask>` 的值 | 与「我们从没改过 fill」是否一致 |
+  |---|---|---|
+  | `<svg fill="white"><mask>` | `white` | ✅（改动前继承白 = 全显示） |
+  | `<svg><mask>` | `black` | ✅（SVG 初始值，抵消我们注入的根 `currentColor`） |
+  | `<svg fill="white"><g fill="#3b82f6"><mask>` | `#3b82f6` | ✅ 取最近，不取最外层 |
+  | `<svg style="fill:white"><mask>` | `white` | ✅ 内联 style 来源也认（但零测试，见 #B22） |
+  | `<svg fill="currentColor"><mask>` | `currentColor` | ✅ 作者自己声明的，亮度随主题是作者行为、非我们引入 |
+  | `<svg fill=""><mask>` | `black` | ✅ 空值非法→不算声明，与 #B15 一致 |
+  | 嵌套 `<mask>`（3 种形态） | 逐层等于该层真实继承值 | ✅ 钉的值恰等于内层本会继承到的值，**归纳可靠** |
+  | `<clipPath>`、`<clipPath>` 套在 `<mask>` 里 | 同上 | ✅（clipPath 只用几何，钉了也不改渲染） |
+- ✅ **顺序约束是真的**：M1（钉遮罩与补根缺省色换序）→ **2 条失败**。`svgToHast` 注释宣称的
+  「唯一一条真约束」名副其实，且有 mutant 守着（#B14 在这一处修好了）。
+- ✅ **#B15 空值**：`<svg fill="">` / `style="fill:"` 都照常补缺省色（测试 L271/L279）。
+  **collateral 我逐个查了**：`themeColors` 无行为变化（空串本来就 `classify → other`，不打 class）；
+  `applyRootDefaultFill` 是本修复的目标；`pinInherited…` 的祖先扫描正确跳过空值（探针 E3 钉 `black`）；
+  **`stripGraphvizBackdrop` 没走 `ownColor`**（它自己拼 `styleValue(...) ?? properties.fill`），
+  所以这条修复**没覆盖到它**——见 #B25（理论面，Graphviz 不产生该写法）。
+- ✅ **#B17 根 svg 判据**：`<div><svg>`、多个并列根、嵌套 svg 全部正确（测试 L284/L292/L299）。
+  **控制器问「会不会误标非图根」——探针结论：不会**。`foreignObject` 内的 svg 有 svg 祖先 → 跳过
+  （并经继承拿到前景色，正确）；`<mask>` 内的 svg → 跳过（继承钉在 mask 上的遮罩语义值，正确）；
+  作者顺手写的一枚非图 `<svg id="icon">` → 会被补 `fill="currentColor"`，但那**正是意图**
+  （它就在 `svg` 车道的作者标记里），且补的是 priority-0 表现属性、输给作者任何声明。
+  最坏情况是「多了一个谁都打得过的缺省值」，不存在破坏面。
+- ✅ **OQ-6 内联尺寸删除**：`applyRootSizing` 与 `ROOT_SIZING` 在仓库里已零引用（实测 grep）。
+  作者根 `style` 现在逐字保留、不写则不造（测试 L256-269）。响应式保证转由
+  `theme.css:353 .mv-diagram svg{max-width:100%;height:auto}` 承担，并在**真实导出产物**上被
+  钉住（`export.test.mjs` 新增两条断言，我核对了断言读的是产物内联 CSS 而非源文件）。
+- ✅ **#B19 导出断言拆分**：不再用 `[^}]*` 跨 props 串联，`xmlns` 前提断言 + `fill:"currentColor"` +
+  `.mv-diagram svg` 尺寸声明三段各自独立。
+- ✅ **#B16 / release-coordinator 报的发布阻塞项**：`AGENTS.md` 两条配套约束现在与 shipped code
+  一致（① 已改为「钉最近的作者字面声明、回落 `black`」，② 已改为「不要往作者根 `<svg>` 注入任何
+  `style`」）。我把 `:165` 那句「非法写法」的取舍描述也验了：`rgb(0,0,0,)` 与 `hsl(0,0%,0)`
+  **确实**仍被判成黑（探针实测），所以现在的措辞是如实的、不再是保证。**这条阻塞项已解除**
+  （唯一残留是 ① 少一句限定语，见 #B23）。
+- ✅ **项目硬约束守住**：`src/mdx/plugins.mjs` 与 `src/cli/vite-config.mjs` 不在 `ff94bda` 的
+  改动清单里（实测 `git show --stat`）；`mermaid` 车道不走 `svgToHast`，本轮零触碰；导出仍零外链
+  （`export.test.mjs` 自包含断言全绿）。
+- ✅ **无越界夹带**：`ff94bda` 的非文档改动只有 `src/mdx/diagrams.mjs`、`src/app/styles/theme.css`、
+  `package.json`（`test:unit` 补文件 + `unist-util-visit-parents` 显式依赖）、三个测试文件与一个
+  fixture。`unist-util-visit-parents` 确实此前已是 `unist-util-visit` 的传递依赖（实测
+  `node_modules/unist-util-visit/package.json:53`），发布说明那句成立。
+
+- [ ] 🟡 **P2 #A5** `src/mdx/diagrams.mjs` L274-287（`pinInheritedFillInColorAgnosticContainers`
+  的祖先扫描只看表现属性与内联 `style`）— **作者用 SVG 内部 `<style>` 给祖先上色时，钉遮罩会
+  把作者的颜色顶掉，且方向是「遮罩全隐藏」**。`ownColor` 读不到 CSS 规则，于是 pin 落到回落值
+  `black`；而**钉在 `<mask>` 元素自己身上的表现属性赢过从祖先继承来的 CSS 值**（继承是级联里
+  最弱的一环——这正是本次修复反复用到的那条事实，在这里反过来咬我们），遮罩内容因此算出黑
+  = 全部挖掉。实测（探针，`rehypeDiagrams()` 直跑）：
+
+  | 输入 | 改动前渲染 | round 5 实际 |
+  |---|---|---|
+  | `<svg><style>svg{fill:white}</style><mask id="m"><rect/></mask>…` | 继承白 → **全显示** | `mask` 被钉 `black` → **全隐藏**（被遮元素消失，明暗两主题都消失） |
+  | `<svg><style>.w{fill:white}</style><g class="w"><mask id="m"><rect/></mask></g>` | 同上 | 同上 |
+
+  **为什么这是 spec 面而不只是工程面**：`PIPELINE.md` 的 OQ-1 用户决策明确把「SVG 内部 `<style>`
+  上色」算作**作者故意设的颜色**，`HYPOTHESIS.md:69` 的硬边界因此覆盖它——#A3 就是这条边界在
+  叶子上的实例，本条是它在遮罩上的**第三个实例**。而且此处我们是**纯倒扣**：该场景下作者的
+  CSS 规则本来就赢过我们注入的根表现属性（`svg{fill:white}` 打赢 `fill="currentColor"`），
+  继承链根本没被我们扰动，pin 却把它改坏了。
+  **具体怎么改（两条路，我倾向 (a)）**：
+  (a) **承认是启发式并如实写下限界**——把源码注释、`AGENTS.md`、发布说明里的绝对化措辞改成
+  「只能重建**表现属性 / 内联 style** 表达的继承，SVG 内部 `<style>` 表达的继承看不到」，
+  并加一条「记录在案的已知限界」测试（形如 #B20 的处理方式）。理由：hast 层没有 CSS 匹配，
+  想真正重建就要实现选择器匹配 + 级联，成本远超收益。
+  (b) 若要在代码上收窄：仅当「根 `<svg>` 子树里没有 `<style>` 元素」时才用回落 `black`，
+  有 `<style>` 时不钉（代价是那种图的遮罩亮度会随主题变，属于把「确定性破坏」换成
+  「主题相关」，未必更好——所以我不建议）。
+  **定为 P2 而非 P1 的理由**（沿用 #A4 的先例，便于控制器判断是否提级）：需要三个不常见条件
+  同时成立（`svg` 车道手写图 + 图里有 `mask`/`clipPath` + 遮罩内容不写 fill 而靠继承 + 作者
+  恰好用内部 `<style>`/class 而非属性上色）；`dot` 车道不产生 mask，设计工具导出的 mask 子元素
+  一律显式写 `fill="white"`；后果是视觉而非数据/安全。若按硬边界严格执行（round 1 对 #A1 的
+  先例），控制器可提级。
+
+- [ ] 🟡 **P2 #A6** `src/mdx/diagrams.mjs` L274-287（pin 只钉 `fill`）+ L200-205（
+  `COLOR_AGNOSTIC_CONTAINERS` 的注释已经承认「描边亮度同样参与遮罩计算」）—
+  **主题仍会经 `stroke` 漏进遮罩亮度**。`themeColors` 会把**遮罩外**祖先自己声明的黑/白 `stroke`
+  语义化（这是对的，那是要画出来的描边），但 pin 只钉 `fill`，于是遮罩内容经继承拿到的 `stroke`
+  变成随主题变的值。实测（探针）：
+
+  | 输入 | 我们做了什么 | 后果 |
+  |---|---|---|
+  | `<svg stroke="black"><mask id="m"><rect stroke-width="4" fill="black"/></mask></svg>` | 根拿到 `mv-diagram-fg-stroke` → 计算值 `currentColor`；`mask` 未钉 `stroke` | 遮罩内 rect 的描边亮度随主题翻转：浅色≈黑（挖掉）→ 深色≈白（**显示**），同一份遮罩两个主题形状不同 |
+  | `<svg stroke="white"><mask id="m"><rect stroke-width="4"/></mask></svg>` | 根拿到 `mv-diagram-bg-stroke` → `var(--surface)` | 反方向同理（浅色显示 → 深色隐藏） |
+
+  这与 #A4 是**同一条缺陷**的 `stroke` 分支，round 5 只关掉了 `fill` 分支。
+  **同时更正我上一轮的错误结论**：round 4 我在「逐条回答」第 2 题里写过「`stroke` 确实不需要
+  钉 ✓」——**那句是错的**，它只对「遮罩子树内部不语义化」成立，对「遮罩的继承来源」不成立。
+  **具体怎么改（我已在隔离副本实现并跑通）**：在同一个 pin 循环里对 `stroke` 再走一遍祖先扫描，
+  **只在祖先真的声明过 `stroke` 时才钉**（不需要回落值——我们从不注入 `stroke` 缺省，
+  SVG 里 `stroke` 初始值本就是 `none`），约 8 行；实现后 110/110 仍全绿（**这正说明该行为
+  零覆盖**，见 #B22 的同类结论），探针确认遮罩拿到 `stroke="black"` 后与主题解耦。
+  **P2 而非 P1**：触发条件同样是三个不常见条件同时成立（`svg` 车道 + mask + 遮罩内容靠**继承**
+  拿描边 + 祖先声明黑/白 stroke），且 `dot` 车道不产生 mask。
+
+## Verdict B — Code-quality
+
+**Status: HELD**（零未解决 P0/P1；下列 P2/P3 可带过 merge）
+
+工程质量继续高于本仓库既有水平：五个纯函数各自单一职责、注释解释「为什么」、这一轮还主动把
+**上一轮讲错的次序理由**改成如实表述并让唯一真约束被 mutant 守住——这是很难得的自我纠错。
+`applyRootSizing` 的删除尤其干净：把一整套「与作者 style 合并」的逻辑连根去掉，换成一条已经
+存在的 CSS 规则 + 两条打在**真实产物**上的断言。以下无 P0/P1。
+
+- [ ] 🟡 **P2 #B22** `test/diagram-theme.test.mjs`（#A4 的用例组 L345-380）— **round 5 最核心的
+  那条修复只覆盖了「表现属性」半边，内联 `style` 半边零覆盖**。实测 mutant M5（pin 的祖先扫描
+  改成只读 `properties.fill`、忽略内联 style 来源）→ **110/110 全绿**，而行为已经退回 #A4 的
+  渲染反转：`<svg style="fill:white"><mask id="m"><rect/></mask></svg>` 从钉 `white`（全显示）
+  变成钉 `black`（全隐藏）。也就是说这条 P2 修复的一半没有任何守卫，下一次重构会静默拆掉它。
+  **具体怎么改**：加一条测试，输入即上面那行，断言 `mask.properties.fill === "white"`
+  （成本 3 行，与 L345 那条对称）。顺带建议把 #A6 的 stroke 钉法与 #A5 的已知限界也各补一条，
+  这三条合起来才让「遮罩绝缘」这个机制被完整见证。
+
+- [ ] 🟡 **P2 #B23** `src/mdx/diagrams.mjs` L252-254 + `AGENTS.md`（「图内颜色的明暗适配」约束 ①）
+  + `openspec/changes/RELEASE-NOTES-DRAFT.md` L79-80 / L88-90 — **三处「遮罩完全绝缘」的绝对化
+  表述被探针证伪**，其中发布说明那处是**面向用户**的。逐句对照：
+  | 位置 | 原文 | 实际 |
+  |---|---|---|
+  | `diagrams.mjs:252-254` | 「让遮罩子树**完全不受**本文件的任何改写影响」 | 两个反例：内部 `<style>` 上色（#A5）、`stroke`（#A6） |
+  | `AGENTS.md` 约束 ① | 「沿祖先链取最近一个**作者声明**的字面值」 | 「作者声明」只含表现属性与内联 `style`；SVG 内部 `<style>` 看不到，会静默回落到 `black` |
+  | `RELEASE-NOTES` L88-90 | 「所以**遮罩效果与改动前一致**」 | #A5 的输入下不一致（全显示 → 全隐藏） |
+  | `RELEASE-NOTES` L79-80 | 「SVG 内部 `<style>` 里写的…**全部原样保留**」 | 对遮罩子树不成立（该句在遮罩之外成立，我逐条验过 8 条声明通道） |
+  **本仓库把注释当承重结构**，而发布说明是用户读到的唯一说明——一句说大了的话在这里的代价
+  和代码缺陷同级（这正是 #B14/#B16 两轮反复出现的同一类问题）。**具体怎么改**：三处各加一句
+  限定语即可（例：「只能重建表现属性 / 内联 `style` 表达的继承；作者若用 SVG 内部 `<style>`
+  给祖先上色，遮罩会回落到 `black`——已知限界」），发布说明那句改成「除极少数用内部 `<style>`
+  上色的手写遮罩外，遮罩效果与改动前一致」。**不阻塞门禁，但建议在 publish 前顺手改掉**——
+  它是发布物的一部分，改动成本一分钟。
+
+### Tracked（P3 — 可留到 merge 之后）
+
+- [ ] 🔵 **P3 #B24** `src/mdx/diagrams.mjs` L308 / L324-334 / L216-232 — **三处源码注释的事实性
+  问题（#B14 的残留 + 新引入）**：
+  (a) **L308 引用了一个不存在的函数名**：`pinInitialFillInColorAgnosticContainers`（shipped 名是
+  `pinInheritedFill…`），且紧跟的解释「会在 `<mask>` 上钉一个 `fill="black"` 把 SVG 初始值找回来」
+  **已经不是 round 5 的行为**（现在钉的是作者字面值，`black` 只是回落）。改名时漏改的一处。
+  (b) **L324-334 `stripGraphvizBackdrop` 的注释仍宣称「这一步必须先于 `themeColors` 跑」——实测为假**：
+  M2（把它移到 `themeColors` 之后）与 M7（把 `themeColors` 提到最前）**都存活，且 19 组探针输出与
+  基线逐字节相同**。原因正是该注释自己括号里的话（它独立判断原始写法）——`themeColors` 只加 class
+  不改 `fill`，多边形无论先后都会被同一条判据剥掉。round 5 重写了 `svgToHast` 的注释、**漏了这个
+  docblock**，于是 #B14 的问题在此原地保留：下一个人会以为这里有次序约束且有测试守着。
+  改成「本步与 `themeColors` 无顺序耦合（它按原始 `fill` 写法独立判断）」即可。
+  (c) **L216-232 那段 `applyRootDefaultFill` 的长 docblock 挂错了函数**：它紧挨着的是
+  `forEachRootSvg` 的注释与定义，`applyRootDefaultFill` 在两个函数之后。内容本身准确，只是位置
+  会让读者（和 IDE 的 hover）把它当成 `forEachRootSvg` 的说明。移到 L244 那个函数头上即可。
+
+- [ ] 🔵 **P3 #B25** `src/mdx/diagrams.mjs` L342（`stripGraphvizBackdrop` 自己拼
+  `styleValue(child.properties?.style,"fill") ?? child.properties?.fill`）— **它复制了 `ownColor`
+  的取值逻辑，因此拿不到 #B15 的空值修复**。实测探针：`<polygon style="fill:" fill="white">`
+  → 空 style 值不为 `null`，`??` 因此**不会**回落到属性 → `classify("") = other` → **背景多边形
+  不被剥掉，还被打上 `mv-diagram-bg-fill`**，深色主题下变成一张不透明的纸色底——正是这个函数存在
+  的目的所要防止的那件事。Graphviz 不产生该写法，故仅为理论面 + 重复实现的维护面。
+  **具体怎么改**：改用 `classify(ownColor(child, "fill")?.value) !== "white"`（语义等价，
+  并把「什么算声明」这件事收敛到一处）。
+
+- [ ] 🔵 **P3 #B26** `src/app/Layout.tsx:335`（`clone.removeAttribute("style")`）— **删掉内联尺寸
+  之后，全屏缩放会丢掉作者写在根 `<svg>` 上的 style**。在 round 5 之前那个 `style` 属性是**我们的**
+  （作者的被字符串拼接吃掉了），删它无损；现在它是**作者的**，于是同一张图在页内渲染尊重
+  `style="fill:#3b82f6;stroke-width:2"`（commit message 与测试 L263 都以此为卖点），进全屏后
+  这些声明全部消失 → **页内与全屏两种观感不一致**。
+  这**不是相对 0.2.0 的回归**（0.2.0 下作者的根 style 在任何视图里都不生效），而是一个既存缺陷
+  被收窄后留下的残口，也是 OQ-6 决策唯一没被测到的连带面（控制器的浏览器复测只断言了克隆件
+  `max-width:none`）。影响面：`svg` 车道 + 作者在根上写了表现性 style + 用全屏；`dot` 车道
+  不受影响（Graphviz 根节点用 `width`/`height` 属性，不写 `style`）。
+  **具体怎么改**：别整属性删，只清尺寸相关声明——`clone.style.maxWidth = "none"`（或删
+  `width`/`height`/`max-width` 三条声明）即可，`apply()` 本来就会覆写 `width`/`height`。
+  **本条仅凭读码得出**（本轮未开浏览器），建议连带补一条 e2e 或在下次浏览器复核时量一下。
+
+- [ ] 🔵 **P3 #B27** `test/diagram-theme.test.mjs` — **嵌套遮罩与几处 pin 边界正确但无守卫**（记录，
+  优先级低）：探针验证 `mask` 套 `mask`（3 种形态）、`clipPath` 套在 `mask` 里、祖先 `currentColor`、
+  裸 `<mask>`（不在任何 `<svg>` 内，会被钉 `black`——无害噪音）全部正确；但套娃场景的守卫价值不高，
+  因为「不给嵌套容器钉」是**等价变异**（内层本会从外层已钉的值继承到同一个值），所以这里只记账、
+  不建议为它补测试。真正值得补的是 #B22 / #A6 / #A5 那三条。
+
+### 从 round 4 结转、状态未变的条目
+
+- [ ] 🔵 **P3 #B18** `test/mdx-pipeline.test.mjs` L79-86 — 注释已按 round 5 改写（现在准确），但
+  **round 1 #B5 的选点问题仍在**：断言看的是 `mv-diagram-fg-stroke`（描边改动前就是好的），
+  而非根 `fill="currentColor"`（核心根因在集成层最直接的证人）。r5 记账为「下次顺手改」，同意。
+- [ ] 🔵 **P3 #B21** `openspec/changes/diagram-theme-adaptation/tdd-evidence.md` — **仍停在 round 2**
+  （`grep 227 / ff94bda / "Round 5"` 零命中）。后果如上一轮预测：门禁审查**又**付了一次全量重跑
+  （227/227）。r3–r5 的机器事实目前只活在 `PIPELINE.md` 的叙述里，而 `PIPELINE.md` 是控制器的
+  自述载体、不是证据载体。**建议**：把 r3–r5 的命令 / 真实退出码 / 通过计数 / commit stamp
+  （现在有真 stamp 了：`ff94bda`）补进 `tdd-evidence.md`，下一轮才能复用机器事实。
+- [ ] 🔵 **P3 #B4**（round 1 遗留）`src/app/styles/theme.css` L370-377 — 8 个语义 class 仍是全局
+  未限定作用域选择器；写成 `.mv-diagram .mv-diagram-fg-fill` 可把 `!important` 的爆炸半径收进图内。
+- [ ] 🔵 **P3 #B20**（round 4 记录，仍不建议修）`<mask>` 内用 `<use>` 引用遮罩**外部**的黑/白元素时，
+  语义 class 随影子树进遮罩 → 遮罩亮度随主题变。本轮复核：仍然存在，且与 #A5/#A6 属同一族
+  （「遮罩绝缘」不是全封闭的）。修它要建 id→节点索引，成本远高于收益。**但它现在应当和 #A5/#A6
+  一起被写进那句限界说明里**（见 #B23）。
+- **#B11 / #B16 代码侧**：少数非法 CSS 写法仍判黑（实测确认 `rgb(0,0,0,)`、`hsl(0,0%,0)`）。
+  同意维持不修；`AGENTS.md` 与发布说明已如实描述取舍（本轮已核对措辞成立）。
+- **#B7 / #B14(svgToHast 部分) / #B15 / #B17 / #B19 / #A4**：已结，见下表。
+
+## round 4 → round 5 状态对照（**本表是 finding 状态的唯一权威**）
+
+| round 4 条目 | 状态 | 依据（全部实测） |
+|---|---|---|
+| 🟡 P2 #A4 遮罩无条件钉黑 | **Resolved（修法更优）** | 7 组输入 × 探针逐一对齐「从没改过 fill 会继承到什么」；测试 L345/L357/L362/L370；M1 mutant 死 |
+| 🔵 P3 #B14 次序注释讲错 | **Partially resolved** | `svgToHast` 三处改对且唯一真约束有 mutant 守（M1 死）；**`stripGraphvizBackdrop` docblock 仍讲错**（M2/M7 存活）→ 结转 **#B24(b)** |
+| 🔵 P3 #B15 `fill=""` 当已声明 | **Resolved** | 测试 L271/L279 + 探针 E3；collateral 三处已查，第四处 `stripGraphvizBackdrop` 未覆盖 → **#B25** |
+| 🔵 P3 #B16 AGENTS.md 说大了 | **Resolved** | 措辞改为如实取舍；`rgb(0,0,0,)`/`hsl(0,0%,0)` 判黑经探针确认，描述与实现一致 |
+| 🔵 P3 #B17 根 svg 只扫顶层 | **Resolved** | 测试 L284/L292/L299 + 探针 R1–R4（无误标非图根） |
+| 🔵 P3 #B18 集成断言选点 | **仍未处理**（注释已修，选点未改） | 见上 |
+| 🔵 P3 #B19 导出断言绑属性顺序 | **Resolved** | 拆成三段独立断言，读码核对 |
+| 🔵 P3 #B20 mask 内 `<use>` 引外部 | **仍未处理（记录，不建议修）** | 本轮复核仍在；应并入 #B23 的限界说明 |
+| 🔵 P3 #B21 tdd-evidence 停在 r2 | **仍未处理** | 本轮因此第二次全量重跑 |
+| 🔵 P3 #B4 全局选择器 | **仍未处理** | 原样结转 |
+| OQ-6 内联尺寸是否删 | **已删，核对通过** | grep 零引用 + 测试 L256-269 + 导出产物断言；残留 **#B26**（全屏克隆） |
+| OQ-5 #A4 是否本轮修 | **已修** | 见 #A4 行 |
+
+## 逐条回答控制器本轮的问题
+
+1. **字面继承值的 pin 对不对？还会不会漏进主题、或反向钉错？**
+   **主体正确**——`fill` 一支我按「如果我们从没改过 fill，这里会继承到什么」逐条对齐，7 组输入
+   （含嵌套 mask 三形态、`clipPath`、`clipPath` 套 mask、内联 style 祖先、`currentColor` 祖先、
+   空值祖先）全部一致；嵌套场景之所以对，是因为**钉的值恰等于内层本会继承到的值**，因此逐层
+   传播是幂等的（归纳成立，不是巧合）。
+   **两个仍会漏的口子**：`stroke` 分支完全没钉（**#A6**，主题确实还在漏进遮罩亮度，两个方向都验了）；
+   作者用 SVG 内部 `<style>` 上色时 pin 反向钉错（**#A5**，方向是「遮罩全隐藏」，属于「钉了一个
+   让原本正常的遮罩变错」的那一类）。加上 round 4 记录的 #B20，「遮罩完全绝缘」目前是**三处不闭合**
+   的启发式——机制值得保留，但那句绝对化描述必须改（**#B23**）。
+2. **删掉内联尺寸还有哪些没测到的后果？（按车道与路径说）**
+   - `dot`（dev + 导出）：Graphviz 根节点只有 `width`/`height` 属性、从不写 `style`，
+     `.mv-diagram svg{max-width:100%;height:auto}` 完全接管 ✓（控制器已量 1937pt）。
+   - `svg`（dev + 导出）：作者根 style 现在逐字保留。最坏情况是作者自己写
+     `style="max-width:none"`/`width:3000px` → 内联赢过 `theme.css`；但**页面级不溢出仍有保证**，
+     因为 `.mv-diagram{overflow-x:auto}`（L352）把溢出收进图容器内滚动。这是新暴露的行为
+     （0.2.0 下作者的这类声明被吃掉），属于「尊重作者」的正确方向，不是缺陷。
+   - `mermaid`：从不走 `svgToHast`，本来就没有这条内联声明，零影响 ✓。
+   - 全屏缩放：尺寸没问题（`.mv-zoom-canvas svg{max-width:none!important}` + `apply()` 写内联
+     `width/height`）；**但克隆件被整属性删 style，作者的根 style 在全屏里丢了 → #B26**。
+   - 导出自包含：`theme.css` 被内联进产物，新断言直接读产物文本钉住那条规则 ✓；零外链不受影响 ✓。
+   - 打印：`theme.css` 无 `@media print` 块，没有依赖内联尺寸的第二条路径 ✓。
+   - 其它消费者：图 markup 永远被 `figureWrap` 包在 `.mv-diagram` 里，选择器一定命中 ✓；
+     e2e 三个 spec 无一断言内联尺寸（实测 grep）✓；仓库内 `applyRootSizing`/`ROOT_SIZING` 零引用 ✓。
+     唯一失去的性质是「把 svg 单独拷出 `.mv-diagram` 之外也自洽」——OQ-6 已把它当取舍接受。
+3. **`ownColor` 空值改动的连带影响？** `themeColors` 无行为变化（空串本来就判 other）；
+   `applyRootDefaultFill` 是目标；pin 的祖先扫描正确跳过空值。**控制器提到的第三处
+   `stripGraphvizBackdrop` 其实并不走 `ownColor`**（它自己拼取值逻辑），因此这条修复没到那里 →
+   **#B25**（探针给出了具体的坏输出：背景多边形不被剥且被打上 `bg-fill`）。
+4. **`forEachRootSvg` 会不会误标非图根？** 不会（探针 R1–R4）。`foreignObject` 内的 svg、
+   `mask` 内的 svg 都有 svg 祖先 → 正确跳过；作者顺手写的非图 `<svg>` 会被补缺省色，但那正是
+   `svg` 车道的语义，且补的是 priority-0 表现属性、输给作者任何声明，最坏情况是「多了一个
+   谁都打得过的缺省值」。裸 `<mask>`（不在任何 svg 内）会被 pin 钉 `black` —— 无害噪音，已记入 #B27。
+5. **变异意义上的测试充分性（不是用例条数）？** 三个**存活**的关键 mutant：
+   M5（pin 忽略内联 style 来源）→ 110/110 全绿而行为退回 #A4 反转 → **#B22**；
+   「pin 也钉 stroke」这个**修复**能在不改任何测试的情况下全绿 → 该行为零覆盖（**#A6** 的另一面）；
+   M2/M7（次序）存活但是**等价变异**，不算覆盖洞，属于注释问题（**#B24(b)**）。
+   已经守好的：pin 字面值 / 钉黑回落 / 取最近祖先 / 容器自声明不覆盖 / pin-before-root-default
+   （M1 死）/ 空值两种来源 / 三种根 svg 形态 / 「根 style 一个字都不改」/ 导出产物两半。
+   **结论：round 5 的新行为里恰有两处零覆盖，都在遮罩绝缘这一族上，且都能用 3–6 行测试钉住。**
+6. **注释 / `AGENTS.md` / 发布说明还有事实错误吗？**
+   - `AGENTS.md` 两条约束**现在与 shipped code 一致**（release-coordinator 报的阻塞项已解除），
+     唯一残留是约束 ① 少一句「作者声明只含属性/内联 style」的限定语 → #B23。
+   - 源码注释：三处 → #B24（改名漏改的函数名 + 已过期的「钉 black」描述、
+     `stripGraphvizBackdrop` 讲错的次序、挂错函数的 docblock）；以及 pin docblock 的
+     「完全不受影响」→ #B23。
+   - 发布说明：两句绝对化表述被证伪 → #B23（**用户可见，建议 publish 前改**）。其余我抽验的
+     事实全部成立：三个 commit 清单 ✓、`unist-util-visit-parents` 此前确为传递依赖 ✓、
+     `make check-mdx FILE=` 目标存在 ✓、`engines.node>=20` 未变 ✓、非法写法取舍描述与实现一致 ✓、
+     「组件/参数/frontmatter 零改动」与 diff 一致 ✓。（`--check` 一节属 `ce99eab`，
+     不在本轮 delta 内，已由 `openspec/changes/mdx-compile-check/code-review/CHECKLIST.md` 覆盖；
+     我只抽验了退出码与 make 目标两项事实。）
+   - `package.json` 仍是 `0.2.0`：版本 bump 属 publish 节点，不在本审查范围（也不是缺陷）。
+
+## 独立复核记录（不采信自述的部分）
+
+- **全量重跑**（`tdd-evidence.md` 无 r3–r5 记录 = 证据缺失）：`npm test` → tests 227 / pass 227 /
+  fail 0 / **EXIT=0**（退出码直接落盘，非管道读取）。与控制器自报的 227/227 一致。
+- **隔离副本基线**：`node --test test/diagram-theme.test.mjs test/mdx-pipeline.test.mjs` → 110/110。
+- **4 个 mutant**：M1 死（2 失败，证明 pin-before-default 是真约束且有守卫）；
+  M2 活 + 探针逐字节相同；M7 活 + 探针逐字节相同（两者共同证明 `stripGraphvizBackdrop` 的
+  次序注释为假、`themeColors` 的「无耦合」注释为真）；M5 活（110/110 全绿，行为已回归 #A4）。
+  控制器自报 r5 新增 9 个 mutant 全死——我抽验了其中 3 个方向（无条件钉黑、钉/补换序、
+  只扫顶层找根），结论一致；**但「全死」不等于「行为全被覆盖」**：M5 与 stroke 钉法证明
+  mutant 集合本身有盲区（它们是按已实现的代码取变异，没有覆盖到「该做而没做」的分支）。
+- **19 组结构探针**：见上文「额外自证」清单；#A5 / #A6 / #B25 / #B27 四条结论均由探针输出直接得出。
+- **候选修法验证**：#A6 的 stroke 钉法在隔离副本实现 → 110/110 全绿 + 探针确认遮罩与主题解耦。
+- **未重复确定性门禁**：security / a11y / perf 三个门禁由独立节点负责，本审查未代跑；本轮 diff 里
+  未见属于它们的问题（无新依赖引入运行时、无新输入面、无新 I/O；对比度是本次修复对象，
+  由控制器浏览器实测承担）。
+- **未做的事（如实声明）**：未开浏览器（本轮要求）；因此 #B26（全屏克隆丢作者 style）仅凭读码
+  得出，未量测；发布说明里的对比度数字（13.42:1 / 13.84:1）无法由我重算，仍只由控制器的量测承担。
+
+---
+
+**Merge gate**: 仅当 A、B 两个判定**同时** HELD 时成立。**当前: HELD**
+（A HELD / B HELD；**零未解决 P0/P1**）。
+**Stamp 前提已满足**：本轮 Commit 行 = `ff94bda` = merge-candidate HEAD，且 `src/`+`test/` 工作树
+与该 commit 逐字节一致（实测）。未提交的两个**文档**（`AGENTS.md` 的 #B16 修复、
+`RELEASE-NOTES-DRAFT.md`）已一并审过；若它们在提交前再被改动，需重读本文件。
+**Progress**: 0 / 0 resolved（本轮 P0+P1 合计 **0** 条；新增 P2×4（#A5、#A6、#B22、#B23）+
+P3×4（#B24–#B27）+ 结转 P3×4（#B18、#B21、#B4、#B20），均不计入门禁）
+
+**结论**：round 5 把 round 4 的 #A4 与四条 P3 都真修好了，其中 #A4 的修法**优于本审查上一轮给出的
+建议**（我只推理了「钉不钉」，没推理「钉的源头也被我们改了」——那一层是控制器的浏览器量测抓到的，
+如实记为我的漏判）；`applyRootSizing` 的删除是本轮最干净的一笔，用一条既存 CSS 规则 + 两条打在
+真实产物上的断言换掉了一整套合并逻辑。代价是「遮罩绝缘」这个机制现在有**三处不闭合**
+（#A5 内部 `<style>`、#A6 `stroke`、#B20 mask 内 `<use>`），其中两处是本轮新暴露的，而代码与文档
+都把它描述成了绝对性质——这是本轮唯一需要收口的东西，且收口方式主要是**加限定语 + 三条小测试**，
+不是重构。四条 P2 全部不阻塞门禁。

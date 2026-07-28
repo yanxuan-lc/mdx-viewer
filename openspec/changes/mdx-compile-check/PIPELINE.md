@@ -26,8 +26,6 @@ contract, and a cross-repo consumer will depend on its flag name + exit-code sem
 - [x] design-spec r3 → S17 deleted, seam prohibited in R4/design/tasks; D7 rewritten; 8 requirements / 18 scenarios; REVIEW.mdx stamp f3a74ce317a4 @ 2026-07-27T16:10:08Z → 2026-07-27T16:18:47Z
 - [x] implement → src/cli/compile-check.mjs + output/messages/bin wiring; 25 unit tests; tdd-evidence.md; npm test 118/118 (controller-verified) @ 2026-07-27T16:18:47Z → 2026-07-27T16:45:37Z
 - [x] e2e-author → e2e-manifest.md **status: final**; 18/18 PASS; S7 strengthened with real proof (exit-0 assertion + post-exit TCP ECONNREFUSED, not an inference from matching output); stamp 'uncommitted at base 15433c9' @ 2026-07-27T16:18:47Z → 2026-07-27T16:51:00Z
-- [ ] implement → product code + unit tests + tdd-evidence.md
-- [ ] e2e-author → e2e-manifest.md (scripted carrier: subprocess CLI tests, not Playwright — no browser surface)
 - [x] security-gate → security-scan-report.md: Critical/High/Medium = 0; 1 Low (no compile timeout), 4 Info. dep-audit tool-verified clean; secret-scan degraded (no gitleaks) but full-history; **SAST tool NOT run** (none installed) — manual targeted review substituted and labelled as such @ 2026-07-27T16:51:00Z
 - [-] a11y-gate → no browser UI surface @ 2026-07-27T14:35:01Z
 - [x] perf-gate → perf-report.md: **10.1x faster than `mdxx`** (budget >=5x) PASS; test:unit stays fast PASS; marginal cost flat-to-declining 9.3->5.6->5.2 ms/doc over 10/25/50 docs — no accumulation @ 2026-07-27T16:51:00Z
@@ -53,13 +51,15 @@ contract, and a cross-repo consumer will depend on its flag name + exit-code sem
       @ 2026-07-28T00:05:00Z → 2026-07-28T00:35:00Z
 - [x] code-review → code-review/CHECKLIST.md: **Verdict A (spec-compliance) HELD; Verdict B (code-quality) HELD**; 0 P0, 0 P1, 5 P2, 4 P3 @ 2026-07-27T16:51:00Z → 2026-07-27T17:07:30Z
 - [x] spot-check (controller hands-on, recorded below) @ 2026-07-27T17:38:51Z ⟦async human sample⟧
-- [ ] merge → dev (auto on green machine gates)
 - [-] canary → project has no CD/telemetry (infra-readiness: off) @ 2026-07-27T14:35:01Z
 - [x] docs-sync → AGENTS.md (command tables + dir tree + glossary term) / README.md / README.zh-CN.md @ 2026-07-27T17:38:51Z
-- [ ] merge -> dev   **BLOCKED ON USER CONSENT** (project CLAUDE.md forbids committing without an explicit request; the track's auto-merge is overridden by that instruction)
-- [ ] archive        (after merge)
-- [ ] publish ⟦human consent⟧ — DEFERRED by user this round; skill side can be written against
-      the contract first, released when the user says so
+- [x] merge → dev → `ce99eab`（用户明确要求后提交并推送）@ 2026-07-28T02:12:00Z
+- [ ] archive        （随 0.3.0 发布一起归档）
+- [~] publish ⟦human consent⟧ — 上一轮由用户推迟；**2026-07-28 用户已要求发布**，版本号经确认
+      定为 **0.3.0**（SemVer：`--check` 是新增能力 → MINOR；0.x 下即便算破坏性也仍是 MINOR，
+      两种读法同一个数）。发布前置见 diagram-theme-adaptation/PIPELINE.md 的 r5 复审行。
+      跨仓影响：excalivibe 的 `mdx-artifact` skill 把 `--check` 的 flag 名与退出码写死成交付
+      门禁，本版本发布后那道门禁才在别人机器上真正可用（已在两份 CONTRIBUTING 里记明）。
 
 manual: none
 waived: none

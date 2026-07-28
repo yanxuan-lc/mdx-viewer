@@ -48,7 +48,9 @@ exit code) — the fix changes how an already-documented lane renders.
 - [x] round-5 收口 → 遮罩改钉「作者字面继承值」；空值不算声明；根 svg 不限顶层；删掉与
       theme.css 重复的内联尺寸注入；修正两处讲错的注释与文档；累计 17 个 mutant 全杀；
       dev × 明暗 + 宽图不溢出 + 全屏缩放实测；npm test 227/227 @ 2026-07-28T03:35:42Z
-- [ ] merge → dev   **BLOCKED ON USER CONSENT**（项目 CLAUDE.md 禁止未明确要求就提交）
+- [x] merge → dev → `ff94bda`（用户明确要求后提交并推送）@ 2026-07-28T03:50:00Z
+- [~] code-review r5（r5 改了产品码却无复审留痕，release-coordinator 判为发布阻塞）→ dispatched
+- [ ] archive        （随 0.3.0 发布一起归档）
 
 manual: none
 waived: none

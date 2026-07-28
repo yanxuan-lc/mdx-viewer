@@ -34,7 +34,7 @@
       （F2）。断言 `{stdoutIsTTY:false, stderrIsTTY:true}` → `{report:false, diagnostic:true}`
       —— 即广告过的 `>report 2>err` 姿势下报告里**逐字节无 ANSI**（S11）。**不要**复用
       `bin/mdxv.mjs:24` 那个基于 stderr 的单一 `color`。
-- [ ] 2.6 **（code-review #A3 追加，developer 负责）** 2.4 已按当时的 spec 正确落地；
+- [x] 2.6 **（code-review #A3 追加，developer 负责）** 2.4 已按当时的 spec 正确落地；
       现按泛化后的 R6 改 `cli.checkBoundaryNote` 的**两条 locale**：乙档从「列两项」改成
       **「机制 + 举例」**（成品文案见 planner 本轮返回，zh-CN / en-US 均已给出）。
       **必须保住**「顶层 ESM 语句」措辞与围栏惰性说明（丢了就会牵连「写文档讲 JS」这个主要用法）。
@@ -107,5 +107,5 @@
       `test/cli-language.test.mjs` 里 A3/A5 早已引入的先例一致，非本次新破例——见收口报告细节）。
 - [x] 5.2 确认 `src/mdx/plugins.mjs`、`src/cli/vite-config.mjs`、`src/cli/resolve.mjs`、`bin/mdxx.mjs`
       的 diff 为空（CLAUDE.md 双端一致性硬约束）——`git diff --stat` 核实为空。
-- [ ] 5.3 docs-sync：**不在 developer 文件所有权清单内**（`AGENTS.md`/`README*.md` 均未列入本次
+- [x] 5.3 docs-sync（controller 执行，落在 ce99eab）：**不在 developer 文件所有权清单内**（`AGENTS.md`/`README*.md` 均未列入本次
       dispatch 的「Files you own」），未执行，留给 controller 路由给合适的节点。

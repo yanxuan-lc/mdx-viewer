@@ -108,6 +108,11 @@ ExcaliVibe 的 `plugin-infra` 带一个 `mdx-artifact` skill：它写 `.mdx`，�
 源，本仓库才是**。所以你新增 / 改动组件、组件参数或 frontmatter 字段后，那个 skill 的 `SKILL.md`
 与 `references/blocks.md` 需要同步改一遍。先在这里落地，并在 PR 里点一句，好让框架侧跟上。
 
+那个 `≥ 0.2.0` 只管**组件速查**这一面。同一个 skill 还**用 `mdxv --check` 做交付门禁**——编译不过
+的文档它不交出去——而这个 flag 自 **0.3.0** 才有。所以 `--check` 的 CLI 契约（flag 名、退出码
+`0` / `1` / `2`、报告走 stdout 与 `Error:` 走 stderr 的分流）同样是一条跨仓契约：改动其中任何一项
+都会静默弄坏那道门禁，而本仓库看不到那边。
+
 ## 提 PR 前的验证
 
 ```bash

@@ -482,7 +482,11 @@ body.mv-nav-locked { overflow: hidden; }
 .mv-zoom-stage { position: absolute; inset: 0; overflow: hidden; cursor: grab; touch-action: none; }
 .mv-zoom-stage.mv-grabbing { cursor: grabbing; }
 .mv-zoom-canvas { position: absolute; top: 0; left: 0; will-change: transform; } /* 只平移，缩放交给 SVG 内在尺寸 → 放大不失真 */
-.mv-zoom-canvas svg { max-width: none !important; display: block; }
+/* 全屏里必须解除作者/主题在页内加的尺寸上限，否则 apply() 写的放大尺寸被夹住、图放不大。
+   max-height 与 max-width 一样要解除：`svg` 车道会原样内联作者标记，作者写
+   style="max-height:300px" 时只解 max-width 是不够的（以前克隆后整条 removeAttribute("style")
+   顺手把作者的上限也删了，所以看不出来；那句已去掉——它删的会是作者的样式）。 */
+.mv-zoom-canvas svg { max-width: none !important; max-height: none !important; display: block; }
 .mv-zoom-toolbar { position: fixed; top: 16px; right: 16px; z-index: 61; display: flex; gap: 4px;
   background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 5px;
   box-shadow: 0 8px 30px rgba(0, 0, 0, .18); }

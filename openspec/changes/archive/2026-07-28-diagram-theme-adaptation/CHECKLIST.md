@@ -1,11 +1,13 @@
 # Code Review Checklist — diagram-theme-adaptation
 
-> ⚠️ **当前有效判定在文末「# Round 5」**，**权威 stamp = `ff94bda`**（= 被审 merge-candidate
-> HEAD；`src/` 与 `test/` 工作树与该 commit 逐字节一致，已实测 `git diff --stat ff94bda -- src test`
-> 为空）。以下 round 1 / 2 / 3 / 4 段落是历史留痕，它们各自的 Commit 行记录的是**当时**审的
-> 未提交工作树，**不是**门禁 stamp（#A1、#B1/#B2/#B6 在 round 2 修复；#A2/#A3、#B8/#B9/#B12/#B13
-> 在 round 4 修复；#A4、#B14/#B15/#B16/#B17/#B19 与 OQ-6 在 round 5 修复）。
-> 门禁请读文末 round 5 的 Merge gate 行与 Commit stamp。
+> ⚠️ **当前有效判定在文末「# Round 6」**，**权威 stamp = `e7807c3`**（= 被审 commit；且
+> `git diff --stat e7807c3 HEAD -- src test scripts` 实测为空，HEAD `6814bf5` 相对它只是
+> openspec 归档搬迁 + `openspec/specs/compile-check/spec.md`，运行时代码逐字节一致，所以本
+> 判定同时覆盖 `6814bf5`）。以下 round 1 / 2 / 3 / 4 / 5 段落是历史留痕，它们各自的 Commit 行
+> 记录的是**当时**审的树，**不是**当前门禁 stamp（#A1、#B1/#B2/#B6 在 round 2 修复；
+> #A2/#A3、#B8/#B9/#B12/#B13 在 round 4 修复；#A4、#B14/#B15/#B16/#B17/#B19 与 OQ-6 在 round 5
+> 修复；#A5/#A6、#B22/#B23/#B24(a)(b)/#B25/#B26 在 round 6 修复）。
+> 门禁请读文末 round 6 的 Merge gate 行与 Commit stamp。
 
 - **Mode**: Incremental（merge 前增量审查 / 门禁）
 - **Branch**: `dev`
@@ -751,7 +753,7 @@ merge-candidate HEAD**；若提交时内容与本轮所审工作树有任何差�
   fixture。`unist-util-visit-parents` 确实此前已是 `unist-util-visit` 的传递依赖（实测
   `node_modules/unist-util-visit/package.json:53`），发布说明那句成立。
 
-- [ ] 🟡 **P2 #A5** `src/mdx/diagrams.mjs` L274-287（`pinInheritedFillInColorAgnosticContainers`
+- [x] ✅ **RESOLVED（round 6 复核）** 🟡 **P2 #A5** — 残余不闭合结转为 #A7。 `src/mdx/diagrams.mjs` L274-287（`pinInheritedFillInColorAgnosticContainers`
   的祖先扫描只看表现属性与内联 `style`）— **作者用 SVG 内部 `<style>` 给祖先上色时，钉遮罩会
   把作者的颜色顶掉，且方向是「遮罩全隐藏」**。`ownColor` 读不到 CSS 规则，于是 pin 落到回落值
   `black`；而**钉在 `<mask>` 元素自己身上的表现属性赢过从祖先继承来的 CSS 值**（继承是级联里
@@ -782,7 +784,7 @@ merge-candidate HEAD**；若提交时内容与本轮所审工作树有任何差�
   一律显式写 `fill="white"`；后果是视觉而非数据/安全。若按硬边界严格执行（round 1 对 #A1 的
   先例），控制器可提级。
 
-- [ ] 🟡 **P2 #A6** `src/mdx/diagrams.mjs` L274-287（pin 只钉 `fill`）+ L200-205（
+- [x] ✅ **RESOLVED（round 6 复核，mutant M3 守着）** 🟡 **P2 #A6** `src/mdx/diagrams.mjs` L274-287（pin 只钉 `fill`）+ L200-205（
   `COLOR_AGNOSTIC_CONTAINERS` 的注释已经承认「描边亮度同样参与遮罩计算」）—
   **主题仍会经 `stroke` 漏进遮罩亮度**。`themeColors` 会把**遮罩外**祖先自己声明的黑/白 `stroke`
   语义化（这是对的，那是要画出来的描边），但 pin 只钉 `fill`，于是遮罩内容经继承拿到的 `stroke`
@@ -812,7 +814,7 @@ merge-candidate HEAD**；若提交时内容与本轮所审工作树有任何差�
 `applyRootSizing` 的删除尤其干净：把一整套「与作者 style 合并」的逻辑连根去掉，换成一条已经
 存在的 CSS 规则 + 两条打在**真实产物**上的断言。以下无 P0/P1。
 
-- [ ] 🟡 **P2 #B22** `test/diagram-theme.test.mjs`（#A4 的用例组 L345-380）— **round 5 最核心的
+- [x] ✅ **RESOLVED（round 6 独立复跑 M1/M2 均死）** 🟡 **P2 #B22** `test/diagram-theme.test.mjs`（#A4 的用例组 L345-380）— **round 5 最核心的
   那条修复只覆盖了「表现属性」半边，内联 `style` 半边零覆盖**。实测 mutant M5（pin 的祖先扫描
   改成只读 `properties.fill`、忽略内联 style 来源）→ **110/110 全绿**，而行为已经退回 #A4 的
   渲染反转：`<svg style="fill:white"><mask id="m"><rect/></mask></svg>` 从钉 `white`（全显示）
@@ -821,7 +823,7 @@ merge-candidate HEAD**；若提交时内容与本轮所审工作树有任何差�
   （成本 3 行，与 L345 那条对称）。顺带建议把 #A6 的 stroke 钉法与 #A5 的已知限界也各补一条，
   这三条合起来才让「遮罩绝缘」这个机制被完整见证。
 
-- [ ] 🟡 **P2 #B23** `src/mdx/diagrams.mjs` L252-254 + `AGENTS.md`（「图内颜色的明暗适配」约束 ①）
+- [x] ✅ **RESOLVED（round 6 复核；措辞的剩余偏差另开 #B30）** 🟡 **P2 #B23** `src/mdx/diagrams.mjs` L252-254 + `AGENTS.md`（「图内颜色的明暗适配」约束 ①）
   + `openspec/changes/RELEASE-NOTES-DRAFT.md` L79-80 / L88-90 — **三处「遮罩完全绝缘」的绝对化
   表述被探针证伪**，其中发布说明那处是**面向用户**的。逐句对照：
   | 位置 | 原文 | 实际 |
@@ -839,7 +841,7 @@ merge-candidate HEAD**；若提交时内容与本轮所审工作树有任何差�
 
 ### Tracked（P3 — 可留到 merge 之后）
 
-- [ ] 🔵 **P3 #B24** `src/mdx/diagrams.mjs` L308 / L324-334 / L216-232 — **三处源码注释的事实性
+- [x] ✅ **(a)(b) RESOLVED；(c) 未修，结转为 #B34** 🔵 **P3 #B24** `src/mdx/diagrams.mjs` L308 / L324-334 / L216-232 — **三处源码注释的事实性
   问题（#B14 的残留 + 新引入）**：
   (a) **L308 引用了一个不存在的函数名**：`pinInitialFillInColorAgnosticContainers`（shipped 名是
   `pinInheritedFill…`），且紧跟的解释「会在 `<mask>` 上钉一个 `fill="black"` 把 SVG 初始值找回来」
@@ -854,7 +856,7 @@ merge-candidate HEAD**；若提交时内容与本轮所审工作树有任何差�
   `forEachRootSvg` 的注释与定义，`applyRootDefaultFill` 在两个函数之后。内容本身准确，只是位置
   会让读者（和 IDE 的 hover）把它当成 `forEachRootSvg` 的说明。移到 L244 那个函数头上即可。
 
-- [ ] 🔵 **P3 #B25** `src/mdx/diagrams.mjs` L342（`stripGraphvizBackdrop` 自己拼
+- [x] ✅ **RESOLVED（round 6 复核，mutant M4 守着）** 🔵 **P3 #B25** `src/mdx/diagrams.mjs` L342（`stripGraphvizBackdrop` 自己拼
   `styleValue(child.properties?.style,"fill") ?? child.properties?.fill`）— **它复制了 `ownColor`
   的取值逻辑，因此拿不到 #B15 的空值修复**。实测探针：`<polygon style="fill:" fill="white">`
   → 空 style 值不为 `null`，`??` 因此**不会**回落到属性 → `classify("") = other` → **背景多边形
@@ -863,7 +865,7 @@ merge-candidate HEAD**；若提交时内容与本轮所审工作树有任何差�
   **具体怎么改**：改用 `classify(ownColor(child, "fill")?.value) !== "white"`（语义等价，
   并把「什么算声明」这件事收敛到一处）。
 
-- [ ] 🔵 **P3 #B26** `src/app/Layout.tsx:335`（`clone.removeAttribute("style")`）— **删掉内联尺寸
+- [x] ✅ **RESOLVED（round 6 复核；由此暴露的 max-height 口子另开 #B33）** 🔵 **P3 #B26** `src/app/Layout.tsx:335`（`clone.removeAttribute("style")`）— **删掉内联尺寸
   之后，全屏缩放会丢掉作者写在根 `<svg>` 上的 style**。在 round 5 之前那个 `style` 属性是**我们的**
   （作者的被字符串拼接吃掉了），删它无损；现在它是**作者的**，于是同一张图在页内渲染尊重
   `style="fill:#3b82f6;stroke-width:2"`（commit message 与测试 L263 都以此为卖点），进全屏后
@@ -1010,3 +1012,253 @@ P3×4（#B24–#B27）+ 结转 P3×4（#B18、#B21、#B4、#B20），均不计�
 （#A5 内部 `<style>`、#A6 `stroke`、#B20 mask 内 `<use>`），其中两处是本轮新暴露的，而代码与文档
 都把它描述成了绝对性质——这是本轮唯一需要收口的东西，且收口方式主要是**加限定语 + 三条小测试**，
 不是重构。四条 P2 全部不阻塞门禁。
+
+---
+
+# Round 6 — 增量审查（**本轮唯一有效判定 / 门禁与发布前读这一段**）
+
+- **Mode**: Incremental（merge / publish 前增量审查 · 门禁）。**不是** merge 后的 unbiased audit：
+  跑这道门禁**不等于**交付了那一项（后者必须由**不同模型族**在 merge 后抽样执行）。
+- **Branch**: `dev`
+- **Commit**: **`e7807c3240ab12ded4bafce8a90b1d4ed8c8b564`** ← 门禁比对用这一行
+  - 审查范围 = `git diff ff94bda e7807c3`（12 文件）。`ff94bda` 及其之前已由 round 1–5 审过并盖章。
+  - **审查期间 HEAD 前移**（如实记账）：本轮开始时 HEAD = `e7807c3`，结束时 HEAD = **`6814bf5`**
+    （`docs: archive the mdx-compile-check and diagram-theme-adaptation changes`）。已实测
+    `git diff --stat e7807c3 HEAD -- src test scripts` **为空**，`6814bf5` 相对 `e7807c3` 只有
+    openspec 目录搬迁（本文件即因此从 `openspec/changes/diagram-theme-adaptation/` 移到
+    `openspec/changes/archive/2026-07-28-diagram-theme-adaptation/`，本轮就地更新的是这一份）
+    与新增 `openspec/specs/compile-check/spec.md`。**故本判定同时覆盖 `6814bf5`。**
+  - ⚠️ **工作树另有未提交改动，不在本轮判定内**：`M package.json` / `M package-lock.json`
+    = `0.2.0 → 0.3.0` 版本号 bump（实测 lock 的 diff 只有两处 version 字段，无依赖变化）。
+    发布前必须先提交它：`scripts/publish.sh` 的干净工作树门控会拦住带脏树的发布（除非
+    `ALLOW_DIRTY=1`，**不要用**）。
+- **Reviewer model family**: Anthropic Claude（Opus 5）。独立性由控制器分派决定，本 agent 无法自证
+  与实现方是否同族。
+- **Spec 基线**：bug 轨道，无 planner 四契约。Verdict A 依据 = `HYPOTHESIS.md:69` 硬边界「别动作者
+  故意设的颜色」+ `PIPELINE.md` 的用户语义决策（黑→前景 / 白→背景；OQ-1「祖先继承与 SVG 内部
+  `<style>` 上色都算作者故意设的颜色」）+ round 5 CHECKLIST 的待办条目。
+- **本轮首次进入审查范围的文件**（此前任何一轮都没审过，特别标出）：`src/app/Layout.tsx`、
+  `scripts/publish.sh`、`CONTRIBUTING.md` / `CONTRIBUTING.zh-CN.md`。
+- **验证取样**：`tdd-evidence.md` **仍停在 Round 2**（实测 `grep -n "234\|e7807c3\|ff94bda"` 零命中）
+  → 属取样策略里的「证据缺失」，**第三轮触发全量重跑**：`npm test` → **tests 234 / pass 234 /
+  fail 0 / EXIT=0**（退出码由 `cmd > log 2>&1; echo EXIT=$? >> log` 落盘，不是从 `tail`/`grep`
+  管道里读的），与控制器自述的 234/234 一致。`test/diagram-theme.test.mjs` 单跑 = **109/109**，
+  与自述的 109 条一致。lint 仍不存在（无 eslint/prettier/biome 配置，`package.json` scripts 无
+  lint/format）——已核实，不是采信自述。
+- **额外自证（不采信自述的部分，全部在 scratchpad 隔离副本 `iso6` 上做，仓库未被改动）**：
+  - **18 组结构探针**直跑 `rehypeDiagrams()`，专攻 `hasInternalStyleFor` 的判定边界（CSS 注释 /
+    `.fill:hover` 选择器 / `url()` 值内的 `fill:` / `-webkit-text-fill-color` / `stroke-width` /
+    `@media` 块 / CDATA / `<defs>` 内的 `<style>` / 多个 `<style>` / 大写 `FILL:` / `fill : `
+    带空格 / `fill/**/:` / `var()` / 并列两个根 svg 的串味）；
+  - **4 个定向 mutant，全部被杀**（隔离副本基线 109/109）：
+    M1 `hasInternalStyleFor` 恒返回 false（跳过机制失效）→ **死（1 条失败）**；
+    M2 判定退化成 `css.includes(prop)` → **死（1 条失败）**——即控制器所说「加了区别度才杀掉」的
+    那条，**独立复核成立**；M3 pin 只钉 `fill`（去掉 stroke 分支）→ **死（2 条失败）**；
+    M4 `stripGraphvizBackdrop` 退回手写 `styleValue(...) ?? properties.fill` → **死（1 条失败）**。
+    → round 5 的 #B22 两个零覆盖洞**真的补上了**，且新增的两处机制自身也有守卫。
+  - **没开浏览器**（本轮要求不起服务）。控制器的 chrome-devtools 量测我逐条核了**可推导性**：
+    mask `stroke` 钉字面 `black`（探针 P13 命中）、内部 `<style>` 情形不钉且计算值落回作者白
+    （探针 P17 + `semanticClass` 的表现属性/`!important` 分层）、全屏克隆保留作者 `outline` 且
+    仍拿到 `width/height` 与 `max-width:none`（`apply()` 走 CSSOM 逐属性写入 + `theme.css:485`）
+    ——四段机制链都对得上。**但它没覆盖 `max-height`（见 #B33）**。
+
+## Verdict A — Spec-compliance（code-vs-spec，**不是意图校验**）
+
+**Status: HELD**（零未解决 P0/P1；下列 1 条 P2 可带过发布）
+
+> 本判定只回答「代码是否落实了 `HYPOTHESIS.md` / `PIPELINE.md` 写下的契约与边界」，**不判断这个
+> 修复方向本身是不是用户真正想要的**——那属于人类意图回路，本审查结构上不能替代它。
+
+- ✅ **#A6 RESOLVED（stroke 分支已关掉，且修法正确）**。逐条实测：`<svg stroke="black">` +
+  `<mask>` → `mask.stroke="black"` 且容器**未被语义化**（class 数 0）；祖先没声明 stroke 时
+  **不凭空钉**（`mask.stroke` 为 `undefined`，而 `mask.fill` 仍钉 `black`）——「`stroke` 无回落值」
+  这条取舍在代码、注释、测试三处一致，并有 M3 守着。按属性分别判定也做对了：内部 `<style>` 只提
+  `fill` 时，`stroke` 的钉仍照常执行（探针 P13）。
+- ✅ **#A5 RESOLVED（按我上一轮建议的 (a) 方向落地，并且做了机制而不只是注释）**。`<style>svg{fill:white}</style>`
+  + `<mask>` → 不钉（探针 P17），遮罩留给作者的 CSS；这一支的正确性我复核了级联：我们注入的是
+  **表现属性**（优先级 0），作者的 `svg{fill:white}` 是作者规则，本来就赢，所以那种情形下我们
+  确实没扰动继承链，不钉是对的。硬边界「别动作者故意设的颜色」在这一支上守住了。
+- ✅ **无越界夹带（代码面）**：`e7807c3` 的运行时改动只有 `src/mdx/diagrams.mjs` 与
+  `src/app/Layout.tsx`；`src/mdx/plugins.mjs` 与 `src/cli/vite-config.mjs` 未被触碰（双端一致性硬
+  约束成立），`mermaid` 车道不走 `svgToHast`、零触碰，导出零外链未受影响（`export.test.mjs` 全绿）。
+  文档/工具面夹带见 #B35。
+- ✅ **CONTRIBUTING 的「不 bump `≥ 0.2.0`」推理成立**：那两处数字描述的是 `mdx-artifact` skill 的
+  **组件速查**对齐版本，而本次「组件、组件参数、frontmatter 字段零改动」我实测成立（`e7807c3`
+  未触碰 `src/app/components/`、`src/app/mdx-components.tsx`），所以不该 bump。新增段落把
+  `--check` 门禁单独记为「自 0.3.0 才有」的第二条跨仓契约，方向正确、与 `≥ 0.2.0` 不冲突。
+  段落里声明的契约三项我逐条对着 `bin/mdxv.mjs` 核过：退出码 `0/1/2`（L188-197 / L155 / L183）、
+  报告走 `console.log`(stdout) 而诊断走 `console.error`(stderr)（L174/L183/L190）、flag 名
+  `--check`（L74）——**契约描述与实现一致**，不是纸面声明。
+
+- [ ] 🟡 **P2 #A7** `src/mdx/diagrams.mjs` L254-263（`hasInternalStyleFor`）+ L297-299（
+  `styleControls` 的作用域）— **跳过机制比它自己写下的理由粗一档：只要图里任何 `<style>` 文本中
+  出现过 `fill:` / `stroke:`，整张图的 pin 就全部关掉，哪怕那条规则根本不作用于遮罩的祖先链**。
+  这时「作者的 CSS 本来就赢过我们」不成立——**赢的是我们注入的根 `fill="currentColor"`**，于是
+  遮罩亮度重新变成随主题翻转，正是 #A4 那一类缺陷，而 `ff94bda` 在这个输入上是**对的**。
+  逐条实测（探针直跑 `rehypeDiagrams()`，`mask.fill` 为 `undefined` 即「不钉」）：
+
+  | 输入（均含 `<mask id="m"><rect/></mask>`） | `ff94bda` | `e7807c3` | 判断 |
+  |---|---|---|---|
+  | `<style>.foo{fill:red}</style>`（规则与遮罩无关） | 钉 `black` ✅ | **不钉** ❌ | 我们自己的注入漏进遮罩 |
+  | `<style>/* fill: white */ text{font-weight:bold}</style>` | 钉 `black` ✅ | **不钉** ❌ | CSS 注释被当成声明 |
+  | `<style>.fill:hover{opacity:.5}</style>` | 钉 `black` ✅ | **不钉** ❌ | 选择器被当成声明 |
+  | `<style>rect{background:url("…fill:red…")}</style>` | 钉 `black` ✅ | **不钉** ❌ | 值内文本被当成声明 |
+  | 并列两个根 svg，`<style>` 在第 1 个、`<mask>` 在第 2 个 | 钉 `black` ✅ | **不钉** ❌ | 跨 svg 串味（`styleControls` 按整个 fragment 算，不按当前根 svg） |
+  | `<style>text{-webkit-text-fill-color:red}</style>` | 钉 `black` | 钉 `black` ✅ | `-` 前缀正确排除 |
+  | `<style>rect{stroke-width:2}</style>` | — | 正确不影响 `stroke` 的钉 ✅ | 复合属性名正确排除 |
+  | `<style>svg{fill:white}</style>`（#A5 的目标场景） | 钉 `black` ❌ | **不钉** ✅ | 本轮要修的那一支，修对了 |
+
+  另有一条更窄的同类漏口：祖先用**内联 style** 上色（`<g style="fill:black">`）+ 图里另有任意
+  提到 `fill` 的 `<style>` 时，`themeColors` 会给那个 `<g>` 打 `-style` 后缀类（带 `!important`、
+  赢过作者内部 `<style>`），而 pin 被跳过 → 遮罩继承到 `var(--ink)`。
+  **为什么仍判 P2、不阻塞发布**：(1) 硬边界没被破——我们**没有改作者的颜色**，残留的是「没能抵消
+  我们自己注入的缺省色」，而这条代价 `diagrams.mjs` 的限界段已如实写下（「宁可放弃抵消我们自己的
+  注入（代价：遮罩可能随主题变形）」），属**记录在案的不闭合**而非违背契约；(2) 触发要四个不常见
+  条件同时成立（`svg` 车道手写/粘贴图 + 图内有 `<style>` 且文本里出现 `fill:`/`stroke:` + 有
+  `mask`（`clipPath` 只用几何、不受影响）+ 遮罩内容靠**继承**拿颜色）；`dot` 车道不产生 `<style>`
+  也不产生 mask，`mermaid` 车道根本不过这条管线；(3) 后果是视觉，不涉数据/安全。
+  **具体怎么改（发布后做，两条路，我倾向 (a)）**：
+  (a) **把判定收窄到「与这个容器的祖先链相关」**：`styleControls` 改成按**当前根 svg 子树**计算
+  （先解决串味），再进一步只在 `<style>` 文本里剥掉 `/* … */` 注释后匹配「声明位置」的 `prop:`
+  （形如 `[{;]\s*prop\s*:`，可同时干掉选择器与 `url()` 值两类误判）。约 6 行，成本低、方向单调
+  变好——每一步都只把「误跳过」变回「钉」，不会新增改坏作者颜色的风险。
+  (b) 若不改代码，就把 `diagrams.mjs` 限界段、`AGENTS.md` 约束 ①、发布说明三处的措辞从「用内部
+  `<style>` 给遮罩的祖先上色时」改成「图里的内部 `<style>` 一旦出现 `fill`/`stroke` 声明时（不论
+  它是否作用于遮罩）」——见 #B30，那是**发布前**该做的一分钱改动。
+  **测试面**：上表 5 个 ❌ 行没有任何测试记录，所以将来无论收窄还是继续放宽都不会红。真做 (a)
+  时请把「CSS 注释不算声明」「跨 svg 不串味」两条各补一测。
+
+## Verdict B — Code-quality
+
+**Status: HELD**（零未解决 P0/P1；下列 P2/P3 可带过发布）
+
+本轮的工程质量继续走高，而且是**沿着上一轮的批评往回收**而不是往外堆：round 5 的四条 P2 全部
+落地，两处零覆盖洞各自被 mutant 验证过（M1/M2 我独立复跑，都死），`stripGraphvizBackdrop` 收敛
+到 `ownColor` 一处取值，讲错的次序约束改成了「曾经为真、迁到 hast 后退化」的如实记账。
+`hasInternalStyleFor` 是本轮最值得称道的一笔：它把一个只能靠注释说明的限界变成了**可执行的
+让路**，且按属性分别判定（只提 `fill` 时不影响 `stroke` 的钉）——这是比我上一轮建议更好的解法。
+以下无 P0/P1。
+
+- ✅ **#B22 RESOLVED**（两条零覆盖行为都补了测试，M1/M2 独立复跑均死；「`stroke-width` 那条要有
+  区别度」的自述**成立**）。
+- ✅ **#B23 RESOLVED**（三处绝对化表述已加限定语：`diagrams.mjs` 的「## 限界」整段、`AGENTS.md`
+  约束 ① 的「这层隔离是启发式，不是完全绝缘」、发布说明的「常见情形下遮罩效果与改动前一致」+
+  「一个限界，如实说明」整段。措辞的**剩余偏差**记为 #B30，是新问题、不是原条目未修）。
+- ✅ **#B24(a)(b) RESOLVED**（函数名改对了；`stripGraphvizBackdrop` 的假次序约束改成了如实记账，
+  连「为什么它在字符串实现里为真」都留了下来——正是防止下一个人重新推错的写法）。(c) 未动，见下。
+- ✅ **#B25 RESOLVED**（走 `ownColor`，语义等价 + 空值处理统一，M4 守着）。
+- ✅ **#B26 RESOLVED，且删除比替换正确**（`src/app/Layout.tsx` L332-339）。我独立核了控制器给的
+  三条理由：`apply()` 用 **CSSOM 逐属性写入**（`svg.style.width/height`），是**合并**进作者的
+  内联 style 而不是整条替换，所以尺寸一定拿得到；`max-width` 由 `theme.css:485`
+  `.mv-zoom-canvas svg { max-width: none !important }` 接管，`!important` 赢过作者的普通内联声明；
+  **不存在跨次打开的泄漏**——每次打开都 `source.cloneNode(true)` 出新克隆并 `replaceChildren`，
+  `apply()` 只写克隆、`nat.current` 每次重算，页内的 `source` 全程只读（我逐行确认没有任何写
+  `source` 的路径）。fit/缩放/平移的算式只依赖 `viewBox` 与 stage 尺寸，与根 style 无关。
+  **顺带核了 mermaid 车道**（此前从未被提及）：mermaid 默认 `useMaxWidth: true`，会给根 svg 写
+  内联 `max-width`，这一行删掉后它**被保留**了——之所以没坏，全靠 `theme.css:485` 那条
+  `!important`。这条依赖现在是承重的，值得知道；也正因此有 #B33。
+
+- [ ] 🟡 **P2 #B28** `src/mdx/diagrams.mjs` L52-54 — **本 commit 自己把这段注释变成假的**：它写着
+  「全屏缩放也不依赖它：`Layout.tsx` 克隆后就 `removeAttribute("style")`，再由
+  `.mv-zoom-canvas svg { max-width: none !important }` 接管」，而 `removeAttribute("style")` 正是
+  这次删掉的那一行（`Layout.tsx` L332 的位置现在是解释「为什么不再删」的注释）。本仓库把注释
+  当承重结构（#B14/#B16/#B23/#B24 已经为此付了四轮），一处指向不存在代码的跨文件注释会让下一个
+  人以为全屏仍会清掉根 style。**具体怎么改**：把 L53-54 改成「全屏缩放也不依赖它：`Layout.tsx`
+  的 `apply()` 会往克隆件写内联 `width`/`height`，`max-width` 由 `.mv-zoom-canvas svg` 的
+  `!important` 接管」。一行字，建议**发布前顺手改**（它与 #B30 是同一次编辑）。
+
+- [ ] 🟡 **P2 #B29** `openspec/changes/RELEASE-NOTES-DRAFT.md` L6 — **发布说明的提交清单已过期，而
+  它是发布物**：「覆盖 `0.2.0` 之后的三个提交：`15433c9` / `ce99eab` / `ff94bda`」。实测
+  `git log --oneline 84f695e..HEAD` 是 **5 个** commit：上述三个 + 本轮的 `e7807c3` + 归档
+  `6814bf5`，再加一个尚未提交的版本 bump。本轮**恰好改动了这份文件**却没同步这一行。
+  **具体怎么改**：改成「覆盖 `0.2.0`（`84f695e`）之后的全部提交」或补全为
+  `15433c9` / `ce99eab` / `ff94bda` / `e7807c3`（归档与 bump 属流程提交，可不列）。
+  **发布前改**——它是用户读到的第一屏。
+
+- [ ] 🟡 **P2 #B30** `openspec/changes/RELEASE-NOTES-DRAFT.md` L93-97（「一个限界，如实说明」）+
+  `src/mdx/diagrams.mjs` L288-291（限界段的理由句）+ `AGENTS.md` 约束 ① — **限界的描述比实现窄，
+  用户对不上号**。发布说明写的是「当你**用内部 `<style>` 给遮罩的祖先**设 `fill` / `stroke` 时，
+  我们选择完全不动那个遮罩」，实现的规则是「图里任何 `<style>` 文本出现过 `fill:`/`stroke:` 就
+  全图不动」（#A7 的实测表）。于是一个写了 `.node{fill:red}` 又恰好用了 mask 的作者，遮罩会随
+  主题变形，而他读这段会认为自己不在限界内。同一句理由「你的 CSS 本来就赢过我们注入的缺省值」
+  也只在规则**命中遮罩祖先链**时成立。**具体怎么改**：把三处的触发条件统一改成「图里的内部
+  `<style>` 一旦出现过 `fill` / `stroke` 声明（不论它是否作用于遮罩），我们就不动这张图的遮罩」，
+  并把理由句降级为「这种写法下通常是你的 CSS 赢，动它只会弄坏它」。**发布前改**（与 #B28 同一次
+  编辑，合计两分钟）。
+
+- [ ] 🟡 **P2 #B31** `Makefile` L49-50 + `scripts/publish.sh` L75-85 — **新门控把 `make publish-dry`
+  在默认工作分支上打死了**。`publish-dry` 只传 `DRY_RUN=1`，而分支门控在**第 2 步**、`DRY_RUN`
+  完全不影响它，所以在 `dev` 上跑 `make publish-dry` 会在真正演练之前就 `die`。演练的价值正是
+  「合并进 main 之前先排练一遍」，现在必须记住手写 `ALLOW_NON_MAIN=1 make publish-dry`，而
+  Makefile 的帮助文字与脚本头部都没提这件事。**注意：这不影响真正的发布**（发布本来就该从 main
+  跑，那条路径正常），所以不阻塞 0.3.0。**具体怎么改（二选一）**：
+  (a) Makefile：`publish-dry: ALLOW_NON_MAIN=1 DRY_RUN=1 ./scripts/publish.sh`——把豁免放在调用点，
+  脚本里的门控保持一句实话（我倾向这条）；
+  (b) publish.sh：`elif is_on "${ALLOW_NON_MAIN:-}" || is_on "${DRY_RUN:-}"; then`——理由是不可逆性
+  只存在于真发布，代价是演练不再排练这道门。
+  另核了 `--dry-run` 之外的两个前置：`npm view` 重复发布检查与 `npm test` 都在门控之后，演练时
+  仍会真跑一遍测试（≈28s），这是对的。
+
+- [ ] 🟡 **P2 #B33** `src/app/styles/theme.css` L485 + `src/app/Layout.tsx` L332 — **作者的根
+  `style` 现在能活到全屏克隆里，但那条 `!important` 只中和了 `max-width`，没管 `max-height`**。
+  于是作者写 `style="max-height:300px"`（「别让这张图太高」是很自然的意图）时，全屏放大会被这条
+  声明按住：`apply()` 写的 `height` 被 `max-height` 截断，图**放不大**，看起来就是全屏缩放坏了。
+  同类还有 `style="max-width:200px !important"`（内联 `!important` 赢过样式表 `!important`）。
+  在 `0.2.0` 这两种写法都不会咬人——那时作者的根 style 被字符串拼接吃掉了，全屏里又被
+  `removeAttribute("style")` 清掉；是这次「让作者的根 style 真正生效」把这个口子露出来的，属
+  **新缺陷而非既存回归**。控制器的浏览器复测用的是 `outline`，正好绕过了这一类。
+  **具体怎么改（一行）**：`theme.css:485` 补成
+  `.mv-zoom-canvas svg { max-width: none !important; max-height: none !important; display: block; }`。
+  想更稳就在 `Layout.tsx` 里对克隆件显式写 `clone.style.maxWidth = clone.style.maxHeight = "none"`
+  （内联 + 我们自己写，谁都盖不过），但**不要**退回整条 `removeAttribute("style")`。
+  建议**发布后**做（触发条件是作者手写 `max-height`，比 #A7 更窄），发布前做也只有一行风险。
+
+### Tracked（P3 — 可留到发布之后）
+
+- [ ] 🔵 **P3 #B32** `scripts/publish.sh` L12-16 — **脚本头部的「开关」清单没有登记
+  `ALLOW_NON_MAIN`**（列了 `DRY_RUN` / `SKIP_TESTS` / `ALLOW_DIRTY` / `SKIP_TAG`）。逃生口在
+  `die` 的提示里点了名，所以撞上时能自己发现，但读文档的人发现不了。补一行即可。
+  **顺带把「能不能被误绕过」的核查结论记下（控制器点名要的）**：
+  - `ALLOW_NON_MAIN` 走 `is_on`，**只有恰为 `1`** 才放行（`true` / `yes` 无效）——与 `ALLOW_DIRTY`
+    同一个惯例，不会因拼写随手放行；
+  - 脚本读 `.env` **只取 `NPM_ACCESS_TOKEN`**（`grep -E '^[[:space:]]*NPM_ACCESS_TOKEN='`，
+    刻意不 `source`），所以**在 `.env` 里写 `ALLOW_NON_MAIN=1` 不会生效**——这一点很好；
+  - detached HEAD 时 `BRANCH="HEAD"` → `die`，**fail-closed**，正确；
+  - 唯一的误绕过路径是老问题：在交互 shell 里 `export ALLOW_NON_MAIN=1` 排练过一次后忘了清，
+    之后的真发布只会打一行 `warn` 就继续。与 `ALLOW_DIRTY` 完全同构，可接受；若要更稳，可让
+    非 main 分支在**非** `DRY_RUN` 时额外要求交互确认。
+  - 还有一条**门控没覆盖**（本来也没声称覆盖）：它只比对分支**名**，不比对 `main` 是否与
+    `origin/main` 同步，所以从落后的本地 `main` 发布仍会放行。记录，不建议本轮改。
+
+- [ ] 🔵 **P3 #B34** `src/mdx/diagrams.mjs` L216-232 — **#B24(c) 未修**：`applyRootDefaultFill` 的长
+  docblock 仍挂在 `forEachRootSvg` 之前（两个块注释相邻，函数体在两个函数之后）。内容准确，只是
+  读者与 IDE hover 会错位。移到 L244 那个函数头上即可。
+- [ ] 🔵 **P3 #B35** `e7807c3` 的提交范围 — **一个 `fix(diagrams):` 的 commit 里夹了两件无关的事**：
+  `scripts/publish.sh` 的发布门控变更、`CONTRIBUTING.md` / `CONTRIBUTING.zh-CN.md` 的跨仓契约段落。
+  两者本身都审过、都没问题（见 Verdict A 的 CONTRIBUTING 一条与 #B31/#B32），但 commit message
+  一个字都没提，将来按 `git log` 追「发布门控什么时候从 warn 变 die」会追不到。已经落成的
+  commit 不值得改写历史；**发布说明里补一句**「发布脚本：非 `main` 分支从警告改为拦停，
+  `ALLOW_NON_MAIN=1` 可显式豁免」即可，顺带让这条工具链变更对协作者可见。
+- [ ] 🔵 **P3 #B21（结转，本轮再次付费）** `…/tdd-evidence.md` **仍停在 Round 2**（`grep 234 /
+  e7807c3 / ff94bda` 零命中）。后果第三次兑现：门禁又付了一次全量重跑。更要紧的是**这个变更已经
+  被归档**（`6814bf5`），r3–r6 的机器事实（命令 / 真实退出码 / 通过计数 / commit stamp）此后
+  只活在 `PIPELINE.md` 的叙述与本文件里，而叙述不是证据载体。**建议**：归档目录里把 r5/r6 的
+  `npm test` 227→234、`e7807c3` stamp 补进 `tdd-evidence.md`，作为这条轨道的收尾。
+- [ ] 🔵 **P3 #B18（结转，状态未变）** `test/mdx-pipeline.test.mjs` L79-86 — 断言选点仍看
+  `mv-diagram-fg-stroke` 而非根 `fill="currentColor"`。本轮未触碰该文件。
+- [ ] 🔵 **P3 #B4（结转，round 1 遗留）** `src/app/styles/theme.css` L370-377 — 8 个语义 class 仍是
+  全局未限定作用域选择器。
+- [ ] 🔵 **P3 #B20 / #B27（结转，记录性）** mask 内 `<use>` 的不闭合、嵌套 mask 的等价变异——结论
+  未变，不建议为它们补测试。
+
+---
+**Merge gate**: HELD only when BOTH verdicts are HELD.  Currently: **HELD**
+（Verdict A HELD · Verdict B HELD · 零 P0 / 零 P1）
+**Publish 判断**：**可以发 0.3.0。** 本轮 6 条 P2 + 6 条 P3 **全部 shippable-with-record**，
+不构成 hold。若愿意花两分钟，发布前建议只做三处纯文档编辑（#B29 提交清单、#B30 限界措辞、
+#B28 假注释），它们都在发布物或承重注释里；#A7 / #B31 / #B33 / #B32 及全部 P3 留到 0.3.1。
+**发布前的两个流程前置（不属本判定，但会拦住脚本）**：① 未提交的 `0.3.0` 版本 bump 必须先 commit
+（干净工作树门控）；② 发布须从 `main` 跑（新的分支门控），别用 `ALLOW_NON_MAIN` 绕。
+**Progress**: 0 / 0 P0+P1 未解决（round 5 结转的 4 条 P2 全部 Resolved：#A5 #A6 #B22 #B23；
+round 5 的 P3 #B24(a)(b) #B25 #B26 亦 Resolved）；本轮新开 6 条 P2（#A7 #B28 #B29 #B30 #B31 #B33）
++ 4 条 P3（#B32 #B34 #B35 与结转项）——**均不阻塞**。

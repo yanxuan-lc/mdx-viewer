@@ -50,8 +50,11 @@ function normalizeSvgMarkup(svg) {
    免得有人再加回来：
    - 它与 `theme.css` 的 `.mv-diagram svg { max-width: 100%; height: auto }` **完全重复**，
      而那条规则在 dev 与导出两条路径下都生效（导出会内联 theme.css）；
-   - 全屏缩放也不依赖它：`Layout.tsx` 克隆后就 `removeAttribute("style")`，再由
-     `.mv-zoom-canvas svg { max-width: none !important }` 接管；
+   - 全屏缩放也不依赖它：放大尺寸由 `Layout.tsx` 的 `apply()` 以内联 width/height 写入，
+     `max-width` / `max-height` 由 `.mv-zoom-canvas svg` 的 `!important` 接管；
+     （这里原本写着「`Layout.tsx` 克隆后就 `removeAttribute("style")`」——那句在删掉本注入
+     的同一轮里就被自己作废了：那时删的是我们注入的 style，删完后它删的会是**作者的** style，
+     所以那一行也一并去掉了。留这段是为了不让下一个人照着一句过期描述做判断。）
    - 而它有实实在在的害处：原实现在**字符串**上 `replace(/(<svg\b)/, '$1 style="…"')`，
      作者若自己在根上写了 style 就会出现两个 style 属性，HTML 解析规则是**保留第一个**，
      于是作者写在根上的整个 style 被静默吃掉（实测 `<svg style="fill:#3b82f6;stroke-width:2">`
@@ -249,15 +252,26 @@ function applyRootDefaultFill(nodes) {
   });
 }
 
-/** SVG 内部 `<style>` 里是否出现过 `fill` / `stroke` 声明。
- *  只做「有没有」的粗判，不解析选择器——hast 层没有 CSS 匹配能力，见下面的限界说明。 */
-function hasInternalStyleFor(nodes, prop) {
+/** 某个 SVG 的内部 `<style>` 里是否**声明**过 `fill` / `stroke`。
+ *
+ *  只看**声明块内部**（`{…}` 里），并且先剥掉 CSS 注释——否则 `.fill:hover{…}` 这样的
+ *  选择器、注释里的 `fill: white`、`url("…fill:red…")` 这样的值内文本都会被当成声明，
+ *  于是本该钉的遮罩不钉（复审 #A7 的探针矩阵）。
+ *
+ *  仍然**不解析选择器**——那需要在 hast 层实现 CSS matching。所以 `.foo{fill:red}` 这类
+ *  「可能命中、也可能不命中遮罩祖先」的规则一律按「可能命中」处理（不钉，把遮罩留给作者
+ *  的 CSS）。这是唯一残留的粗判，代价写在下面 pin 函数的限界段里。 */
+function hasInternalStyleFor(root, prop) {
+  const declRe = new RegExp(`(^|[;{\\s])${prop}\\s*:`, "i");
   let found = false;
-  visit({ type: "root", children: nodes }, "element", (node) => {
+  visit(root, "element", (node) => {
     if (found || String(node.tagName).toLowerCase() !== "style") return;
     let css = "";
     visit(node, "text", (t) => { css += t.value; });
-    if (new RegExp(`(^|[^-\\w])${prop}\\s*:`, "i").test(css)) found = true;
+    css = css.replace(/\/\*[\s\S]*?\*\//g, "");           // 注释不是声明
+    for (const block of css.matchAll(/\{([^{}]*)\}/g)) {  // 只看声明块内部，不看选择器
+      if (declRe.test(block[1])) { found = true; break; }
+    }
   });
   return found;
 }
@@ -291,13 +305,29 @@ function hasInternalStyleFor(nodes, prop) {
  *  层没有选择器匹配。而内部 `<style>` 的优先级高于我们注入的表现属性，所以那种情形下我们
  *  根本没有扰动继承链，钉反而会把作者的遮罩改坏（复审 #A5 实测：`<style>svg{fill:white}</style>`
  *  时钉 `black` 会让遮罩从「全显示」翻成「全隐藏」，两个主题都消失，纯倒扣）。
- *  因此：**内部 `<style>` 里出现过该属性时，一律不钉**——宁可放弃抵消我们自己的注入
- *  （代价：遮罩可能随主题变形），也不去改一个作者已经用 CSS 掌控住的遮罩。这与本改动的
- *  硬边界一致：别动作者故意设的颜色。真正闭合需要在 hast 层实现 CSS 级联，不在本次范围。 */
+ *  因此：**同一个根 svg 的内部 `<style>` 里声明过该属性时，这张图里的遮罩一律不钉**——宁可
+ *  放弃抵消我们自己的注入（代价：那张图的遮罩可能随主题变形），也不去改一个作者已经用 CSS
+ *  掌控住的遮罩。这与本改动的硬边界一致：别动作者故意设的颜色。
+ *
+ *  这个判断本身是粗判且**偏保守**：`hasInternalStyleFor` 只认声明块里的声明（注释、选择器、
+ *  值内文本都已排除，作用域也限定在这一个根 svg），但**不做选择器匹配**——所以
+ *  `.foo{fill:red}` 这种「可能命中也可能不命中遮罩祖先」的规则会让整张图不钉，即使那条规则
+ *  与遮罩毫无关系。后果是我们没能抵消自己注入的缺省色，遮罩亮度可能随主题变；作者的颜色
+ *  始终没被动过。真正闭合需要在 hast 层实现 CSS 级联，不在本次范围。 */
 function pinInheritedColorInColorAgnosticContainers(nodes) {
-  const styleControls = { fill: hasInternalStyleFor(nodes, "fill"), stroke: hasInternalStyleFor(nodes, "stroke") };
+  // 「作者用内部 <style> 掌控着」这个判断按**每个根 svg** 分别算：一个围栏里可以有多个
+  // 并列的根，A 里的 <style> 不该让 B 里的遮罩不钉（复审 #A7 的跨 svg 串味）。
+  const controlsByRoot = new Map();
+  forEachRootSvg(nodes, (svg) => {
+    controlsByRoot.set(svg, {
+      fill: hasInternalStyleFor(svg, "fill"),
+      stroke: hasInternalStyleFor(svg, "stroke"),
+    });
+  });
   visitParents({ type: "root", children: nodes }, "element", (node, ancestors) => {
     if (!isColorAgnosticContainer(node)) return;
+    const root = ancestors.find((a) => controlsByRoot.has(a));
+    const styleControls = controlsByRoot.get(root) ?? { fill: false, stroke: false };
     for (const prop of ["fill", "stroke"]) {
       if (styleControls[prop]) continue;              // 作者用内部 <style> 掌控着，见限界说明
       if (ownColor(node, prop) !== undefined) continue; // 容器自己声明了，尊重作者

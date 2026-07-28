@@ -410,6 +410,48 @@ test("svg 车道 · #A5 作者用 SVG 内部 <style> 掌控 fill 时，一律不
   assert.equal(findFirst(wrapper, "mask").properties.fill, undefined, "不钉，把遮罩留给作者的 CSS");
 });
 
+// #A7：「作者用内部 <style> 掌控着」这个判断必须只认**声明**，否则该钉的遮罩不钉。
+// 下面四条是复审的探针矩阵，逐条钉住（第五条「.foo{fill:red} 与遮罩无关」是残留粗判，
+// 需要选择器匹配才能判别，如实留在 diagrams.mjs 的限界段里，不在此断言）。
+
+test('svg 车道 · #A7 CSS 注释里的 fill 不算声明——注释写在声明块内部也一样', async () => {
+  // 注释必须写在**块内**这条才有区别度：块外的注释即使不剥，也会被「只看声明块内部」挡掉，
+  // 两个机制互相掩盖，变异测试于是两个都杀不掉（实测过）。块内注释只有剥注释才挡得住。
+  const wrapper = await renderLane(
+    "svg",
+    `<svg><style>text{ /* fill: white */ font-weight:bold }</style><mask id="m"><rect width="9" height="9"/></mask></svg>`,
+  );
+  assert.equal(findFirst(wrapper, "mask").properties.fill, "black", "块内注释不是声明，遮罩仍要钉");
+});
+
+test('svg 车道 · #A7 块外出现的 `fill:`（选择器位置）不算声明', async () => {
+  // 同理，这条要能区别「只看声明块内部」，`fill:` 前面就得是合法边界（空白 / `;` / `{`）——
+  // `.fill:hover` 里前面是 `.`，声明正则本来就不认，杀不掉「不限定在块内」这个变异体。
+  const wrapper = await renderLane(
+    "svg",
+    `<svg><style>text{font-weight:bold} fill:hover{opacity:.5}</style><mask id="m"><rect width="9" height="9"/></mask></svg>`,
+  );
+  assert.equal(findFirst(wrapper, "mask").properties.fill, "black", "选择器位置的 fill: 不是声明");
+});
+
+test('svg 车道 · #A7 值里的文本（如 url("…fill:red…")）不算声明', async () => {
+  const wrapper = await renderLane(
+    "svg",
+    `<svg><style>rect{background:url("a-fill:red-b.png")}</style><mask id="m"><rect width="9" height="9"/></mask></svg>`,
+  );
+  assert.equal(findFirst(wrapper, "mask").properties.fill, "black", "值内文本不是 fill 声明");
+});
+
+test("svg 车道 · #A7 判断按每个根 svg 分别算，不能跨并列的 svg 串味", async () => {
+  const wrapper = await renderLane(
+    "svg",
+    `<svg><style>svg{fill:white}</style></svg><svg><mask id="m2"><rect width="9" height="9"/></mask></svg>`,
+  );
+  const masks = findAll(wrapper, "mask");
+  assert.equal(masks.length, 1, "前提断言：遮罩在第二个根里");
+  assert.equal(masks[0].properties.fill, "black", "第一个根里的 <style> 与第二个根的遮罩无关");
+});
+
 test("svg 车道 · #A5 内部 <style> 只写了别的属性时，不该被误判成「作者掌控了 fill」", async () => {
   const wrapper = await renderLane(
     "svg",

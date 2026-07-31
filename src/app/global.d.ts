@@ -2,6 +2,11 @@
 declare const __MDXV_VERSION__: string;
 declare const __MDXV_LICENSE__: string;
 
+/** dev 下 Vite 注入的 HMR 客户端；这里只声明用得到的自定义事件订阅（build 时为 undefined）。 */
+interface ImportMeta {
+  readonly hot?: { on(event: string, callback: (payload: unknown) => void): void };
+}
+
 declare module "virtual:mdxv-config" {
   const config: {
     mode: "file" | "dir";

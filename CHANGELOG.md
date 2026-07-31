@@ -13,6 +13,18 @@ goes to) and the author surface (components, component props, frontmatter fields
 pixels are not a contract: a fix to make invisible text visible necessarily changes them, and
 such changes are called out per release instead.
 
+## [0.3.1] — 2026-07-31
+
+### Fixed
+
+- **Documents created after `mdxv` started never appeared in the file drawer.** The tree was
+  scanned once at startup and served verbatim for the life of the server, and the browser
+  fetched it once at boot — so neither side ever noticed the disk. `GET /__mdxv/tree` now
+  rescans on every request, the document root is watched for `.md`/`.mdx` additions and
+  removals, and the page refreshes the drawer in place without re-importing the open document.
+  Deleting the document you are reading falls back to the "not found" state, and restoring it
+  reopens it.
+
 ## [0.3.0] — 2026-07-28
 
 [Release notes](https://github.com/yanxuan-lc/mdx-viewer/releases/tag/v0.3.0)

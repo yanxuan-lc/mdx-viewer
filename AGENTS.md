@@ -146,6 +146,9 @@ devDependency）。两者互不重叠：`npm test` 不跑 e2e，e2e 也不替代
   扫描根目录下 `.md`/`.mdx` 暴露 `GET /__mdxv/tree`，前端按 `?doc=<绝对路径>` 用 `/@fs`
   动态加载、路由相对链接、多篇时渲染左侧导航。`virtual:mdxv-config` 把 `{mode, firstDoc}`
   注入前端。（虚拟模块 `virtual:mdx-target` 仅 build 用。）
+  **文件树以磁盘为准**：启动时的扫描结果只是首屏快照，`/__mdxv/tree` 每次请求都重扫；根目录挂到
+  Vite watcher 上，`.md`/`.mdx` 增删推自定义 HMR 事件 `mdxv:tree`，前端据此重取列表只重画抽屉
+  （不重新 import 当前文档）。当前文档被删则落到 `empty.notFound`，重新出现则自动打开。
 - **build（mdxx）**：单篇经 `virtual:mdx-target` re-export 目标 `.mdx`，走 `vite build` +
   `vite-plugin-singlefile`，`assetsInlineLimit` 拉满，KaTeX 字体、用到的 Mermaid 运行时全部
   base64 内联，产出零外链单文件。

@@ -216,6 +216,17 @@ function insideColorAgnosticContainer(ancestors) {
   return ancestors.some(isColorAgnosticContainer);
 }
 
+/** 遍历「最外层的 `<svg>`」——即自身是 svg、祖先里又没有别的 svg 的元素。
+ *  不能只扫 nodes 的顶层：作者完全可以写 `<div><svg>…</svg></div>`，那时 svg
+ *  不在顶层，缺省色与尺寸就都落空了（实测过）。嵌套 svg 不处理，它靠继承。 */
+function forEachRootSvg(nodes, fn) {
+  visitParents({ type: "root", children: nodes }, "element", (node, ancestors) => {
+    if (String(node.tagName).toLowerCase() !== "svg") return;
+    if (ancestors.some((a) => a.type === "element" && String(a.tagName).toLowerCase() === "svg")) return;
+    fn(node);
+  });
+}
+
 /**
  * 「谁都没声明 fill」的缺省色：在**根 `<svg>`** 上补一个表现属性 `fill="currentColor"`，
  * 让缺省色顺着继承链流下去，而不是逐个给叶子节点打 class。
@@ -233,17 +244,6 @@ function insideColorAgnosticContainer(ancestors) {
  * 用表现属性（而不是 class）是有意的：表现属性优先级为 0，所以作者哪怕只在 SVG 内部
  * `<style>` 里写 `svg { fill: … }` 也照样赢。作者已在根上声明 fill 时不插手。
  */
-/** 遍历「最外层的 `<svg>`」——即自身是 svg、祖先里又没有别的 svg 的元素。
- *  不能只扫 nodes 的顶层：作者完全可以写 `<div><svg>…</svg></div>`，那时 svg
- *  不在顶层，缺省色与尺寸就都落空了（实测过）。嵌套 svg 不处理，它靠继承。 */
-function forEachRootSvg(nodes, fn) {
-  visitParents({ type: "root", children: nodes }, "element", (node, ancestors) => {
-    if (String(node.tagName).toLowerCase() !== "svg") return;
-    if (ancestors.some((a) => a.type === "element" && String(a.tagName).toLowerCase() === "svg")) return;
-    fn(node);
-  });
-}
-
 function applyRootDefaultFill(nodes) {
   forEachRootSvg(nodes, (node) => {
     if (ownColor(node, "fill") === undefined) {

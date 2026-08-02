@@ -23,10 +23,18 @@ import { join, dirname, relative, normalize } from "node:path";
 const REPO = fileURLToPath(new URL("..", import.meta.url));
 const { scripts } = JSON.parse(readFileSync(join(REPO, "package.json"), "utf8"));
 
-/* 判据看的是**实际的 import 说明符**，不是自由文本。
-   自由文本会把本文件自己判成违规——它必须写出这些名字才能检查它们；而且
-   注释里提一句 `child_process` 也会误报。ESM 里拿不到 `child_process` 就调不了它，
-   所以「闭包内无人 import 它」与「结构上不具备派生能力」等价。 */
+/* 判据看的是**import 说明符**，不是自由文本：自由文本会把本文件自己判成违规——它必须
+   写出这些名字才能检查它们。
+
+   **这不是零误报的判据**（code-review #B2/#B3）：正则不是解析器，JSDoc 类型位置上的
+   动态 import 表达式会被一并算进来。方向是安全的一侧——把类型引用误判成派生能力，
+   只会让人把那行改成别的写法，不会放过真的派生。
+   附带后果：**本文件自己不能把那个模式原样写出来**，否则它会判自己违规（写这段注释时
+   就踩了一次）。所以上面只描述、不举字面例子。
+
+   **能绕过它的**（实测）：计算出来的动态说明符、`createRequire`、以及经**包名**（而非
+   相对路径）import 到达的 helper——闭包只跟相对 import。这些都不是「本仓今天会出现的
+   写法」，但也不该被读成「查不到就等于没有」。 */
 const ANY_IMPORT = /(?:from|import)\s*\(?\s*["']([^"']+)["']/g;
 const SPAWN_MODULE = /^node:child_process$|^child_process$/;
 /** 相对 import / 动态 import，用来走传递闭包。 */
@@ -34,6 +42,15 @@ const RELATIVE_IMPORT = /(?:from|import)\s*\(?\s*["'](\.[^"']+)["']/g;
 
 /** 一个文件 import 了哪些模块说明符。 */
 const importsOf = (file) => [...readFileSync(join(REPO, file), "utf8").matchAll(ANY_IMPORT)].map(([, s]) => s);
+
+/** 递归收集一个目录下的 .mjs（用真实遍历而非写死清单，新增文件自动纳入）。 */
+function walkMjs(dir) {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const abs = join(dir, entry.name);
+    if (entry.isDirectory()) return walkMjs(abs);
+    return entry.name.endsWith(".mjs") ? [abs] : [];
+  });
+}
 
 const laneFiles = (lane) => [...scripts[lane].matchAll(/test\/[\w./-]+\.test\.mjs/g)].map((m) => m[0]);
 
@@ -88,6 +105,24 @@ test("L1 invariant: test:unit's closure never imports vite, so it cannot reach a
     .filter((file) => importsOf(file).some((specifier) => specifier === "vite" || specifier.startsWith("vite/")))
     .sort();
   assert.deepEqual(offenders, [], "an L1 file importing vite could run a build without spawning anything");
+});
+
+test("no CJS load of child_process or vite exists in bin/ or src/ — the half the probe cannot see", () => {
+  // 探针是 ESM loader 钩子，看不见 `require("child_process")` / `require("vite")`。
+  // 本仓是纯 ESM，`createRequire` 只用于 `require.resolve`（定位包目录）。这条把那个
+  // 事实钉住：一旦有人真的用 require 去**加载**这两者，探针的覆盖声明就不再成立。
+  const sources = ["bin", "src"].flatMap((dir) => walkMjs(join(REPO, dir)));
+  const offenders = sources
+    .map((abs) => [relative(REPO, abs), readFileSync(abs, "utf8")])
+    .filter(([, source]) => /\brequire\s*\(\s*["'](?:node:)?(?:child_process|vite)["']\s*\)/.test(source))
+    .map(([file]) => file)
+    .sort();
+  assert.deepEqual(
+    offenders,
+    [],
+    "these load child_process or vite through CJS require(), which the ESM loader probe cannot observe — " +
+      "S12's 'never spawned, never entered Vite' claim would no longer hold for them",
+  );
 });
 
 test("L3 is the only lane that may reach a build, and it genuinely does", () => {

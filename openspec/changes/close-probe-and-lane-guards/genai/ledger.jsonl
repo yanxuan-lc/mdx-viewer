@@ -1,1 +1,2 @@
 {"event":"note","text":"composed","vector":{"intent":"build","archetype":"refactor","criticality":"supporting","lane":"min","level":"change","cross-family":"deny"},"at":"2026-08-02T14:18:03.659Z"}
+{"event":"fail","node":"implement","unmet":[{"kind":"commit-match","detail":"tdd-evidence.md header is missing the Commit field"}],"skipped":[],"at":"2026-08-02T14:54:58.583Z"}

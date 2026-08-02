@@ -8,7 +8,8 @@
       让它更绿；check 慢一倍它也不红（实测余量 ~10x vs 阈值 5x）；而且拿一个 350ms 的
       进程去比一个 3.6s 的进程，固定启动成本对调度延迟的敏感度远高于吞吐型构建，
       并行负载下会假失败（INBOX perf-s12-wallclock-ratio-flaky）。
-      新判据确定性、亚秒级、不跑任何构建，因此本文件进 test:unit 快车道。
+      新判据确定性、亚秒级、不跑任何构建。本文件按依赖表面属 **L2（test:cli）**——它 spawn
+      真实子进程，只是不跑构建；车道守卫只比对 package.json，看不见这句注释，所以它写错过一次。
    ============================================================ */
 import { test } from "node:test";
 import assert from "node:assert/strict";

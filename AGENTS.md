@@ -159,6 +159,7 @@ devDependency）。两者互不重叠：`npm test` 不跑 e2e，e2e 也不替代
 | `test/mdx-pipeline.test.mjs` | L1 | `src/mdx/plugins.mjs` 编译管线：frontmatter / GFM / 数学 / 高亮 / 图三车道 | 直接调官方 `compile()` 跑 `mdxOptions()` |
 | `test/diagram-theme.test.mjs` | L1 | `src/mdx/diagrams.mjs`：颜色语义化、遮罩/裁剪守卫、缺省色继承 | 全进程内；含多组拼写矩阵，条数由循环生成 |
 | `test/compile-check.test.mjs` | L1 | `src/cli/compile-check.mjs` + `output.mjs` 的 check-* 呈现 | 直接函数调用，**零子进程** |
+| `test/test-lanes.test.mjs` | L1 | 三条车道的依赖表面不变式：车道归属、L1 零 spawn（按传递闭包）、L1 不 import vite、L3 仍会构建、`bin/`+`src/` 无 CJS require 加载 | 只读文件、零 spawn；判据读 import 说明符而非自由文本 |
 | `test/cli-output.test.mjs` | **L2** | `src/cli/output.mjs` 的 CLI 侧：help / 错误 / 状态面板、着色随流 | **spawn 两个 binary**，不跑构建 |
 | `test/cli-language.test.mjs` | **L2** | `--lang` / `MDXV_LANG` / 系统 Locale 的端到端优先级与报错 | **spawn 两个 binary**；含 4 次真实 dev server |
 | `test/compile-check.cli.test.mjs` | **L2** | `mdxv --check` 的黑盒 CLI 契约 S1–S11 / S13 / S15 / S16 / S18 / S19 + `#A1`/`#B5` argv 探测 | 只 spawn `mdxv`，不跑构建 |
@@ -174,7 +175,8 @@ devDependency）。两者互不重叠：`npm test` 不跑 e2e，e2e 也不替代
 > 表里不写耗时、也不写测试条数——两者都会随每次运行变，手工维护的那张表正是上一次错标的成因
 > （`diagram-theme` 曾写「63 条」，实际 113：63 是源码里 `test(` 的行数，其余由循环生成）。
 > **耗时与 pass/fail 计数**只有一处来源：
-> `openspec/changes/retier-test-lanes/genai/suite-report.md`（带 commit 戳）。
+> `openspec/changes/close-probe-and-lane-guards/genai/suite-report.md`（带 commit 戳；
+> 它取代了 retier-test-lanes 那份——旧报告的数字停在车道重划当时，没有新增的守卫）。
 
 - `test/fixtures/export-sample.mdx` 是导出测试的最小样例（committed）。
 - 版本号断言从 `package.json` 读，不写死——bump 版本不需要改测试。

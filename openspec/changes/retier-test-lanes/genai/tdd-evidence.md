@@ -1,6 +1,6 @@
 # tdd-evidence — retier-test-lanes
 
-Commit: 3bd40e4ddabb98e2a7741ab0fb5def00dda052d6
+Commit: 46fe6a878013ab995b834a4d5348eb8eeae38f2e
 
 Re-partition the test lanes by **dependency surface** instead of by (mislabelled) elapsed time.
 Lane `min`: no spec node; input is the task description. No product code changed — this touches

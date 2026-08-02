@@ -12,21 +12,9 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { environment, systemLocalePreload } from "./helpers/cli-env.mjs";
 
 const { version: PKG_VERSION } = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
-
-function environment(overrides = {}) {
-  const next = { ...process.env, ...overrides };
-  if (overrides.MDXV_LANG === undefined) delete next.MDXV_LANG;
-  return next;
-}
-
-function systemLocalePreload(locale) {
-  const source = locale === "throw"
-    ? "Intl.DateTimeFormat=()=>{throw new Error('unavailable')};"
-    : `Intl.DateTimeFormat=()=>({resolvedOptions:()=>({locale:${JSON.stringify(locale)}})});`;
-  return `data:text/javascript;base64,${Buffer.from(source).toString("base64")}`;
-}
 
 test("A3: expected export build failure is localized and stack-free", () => {
   const directory = mkdtempSync(join(tmpdir(), "mdxv-cli-failure-"));
@@ -60,6 +48,13 @@ describe("A5: locale provenance in real exports (four shared builds)", () => {
   const localeExports = new Map();
   let localeDirectory;
 
+  /** 取共享导出结果；矩阵用例改名时报出可读错因，而不是 `Cannot read properties of undefined`。 */
+  const sharedExport = (name) => {
+    const stored = localeExports.get(name);
+    assert.ok(stored, `no shared export recorded for case "${name}" — LOCALE_CASES names and the lookups here have drifted apart`);
+    return stored;
+  };
+
   before(() => {
     localeDirectory = mkdtempSync(join(tmpdir(), "mdxv-cli-matrix-"));
     for (const scenario of LOCALE_CASES) {
@@ -74,19 +69,22 @@ describe("A5: locale provenance in real exports (four shared builds)", () => {
     }
   });
 
-  after(() => rmSync(localeDirectory, { recursive: true, force: true }));
+  // localeDirectory 可能因 mkdtempSync 失败而仍是 undefined；那时 rmSync 会抛 TypeError
+  // 盖住真正的失败原因，所以这里先判一下。
+  after(() => {
+    if (localeDirectory) rmSync(localeDirectory, { recursive: true, force: true });
+  });
 
+  // status === 0 由 before() 统一把关，这里不重复断（重复断在 before 之后是恒真的）。
   test("A5: mdxx flag wins over environment in a real localized export", () => {
-    const { result, html } = localeExports.get("flag");
-    assert.equal(result.status, 0);
+    const { result, html } = sharedExport("flag");
     assert.match(result.stderr, /self-contained/);
     assert.match(html, /<html[^>]+lang="en-US"/i);
   });
 
   test("A5: real mdxx subprocess matrix bundles Locale provenance for every selection source", () => {
     for (const scenario of LOCALE_CASES) {
-      const { result, html } = localeExports.get(scenario.name);
-      assert.equal(result.status, 0, scenario.name);
+      const { result, html } = sharedExport(scenario.name);
       assert.match(result.stderr, scenario.output, scenario.name);
       assert.match(html, new RegExp(`<html[^>]+lang="${scenario.locale}"`, "i"), scenario.name);
       assert.match(html, new RegExp(`initialLocale["']?\\s*:\\s*["']${scenario.locale}["']`), scenario.name);

@@ -1,36 +1,54 @@
 # suite-report — retier-test-lanes
 
-Commit: 3bd40e4ddabb98e2a7741ab0fb5def00dda052d6
+Commit: PENDING
 
-The minimal lane's verification carrier: the project's own suite, run whole.
+The minimal lane's verification carrier: the project's own suite, run whole. Numbers below are
+measured at the commit stamped above — **not carried over from an earlier round**. Round 1 of this
+file did exactly that (stamp advanced, numbers stale), which review caught as P1 #A3.
 
 ## Result
 
-| command | result | wall |
-|---|---|---|
-| `npm test` (`node --test test/*.test.mjs`, the full gate) | **247 pass / 0 fail / 0 skipped / 0 todo** | 24.4 s |
-| `npm run test:unit` (L1) | 189 pass / 0 fail | 1.3 s |
-| `npm run test:cli` (L2) | 42 pass / 0 fail | 7.7 s |
-| `npm run test:build` (L3) | 16 pass / 0 fail | 22.6 s |
-| `make lint` | exit 0 | — |
+Recorded as **exit code + all four counters**, not just `pass` / `fail`. Reason (review P2 #B9):
+when a `describe()`-scoped `before()` hook throws, node:test reports its tests as
+**`cancelled`, not `fail`** — so a broken shared fixture yields `pass 2 / fail 0`, which reads
+green while the real exit code is 1. Copying only the pass/fail line into evidence would transcribe
+a red run as green.
 
-189 + 42 + 16 = 247, and 247 is also the count before this change — every test was moved,
-none dropped or duplicated.
+| command | exit | tests | pass | fail | cancelled | skipped | wall |
+|---|---|---|---|---|---|---|---|
+| `npm test` (full gate, `test/*.test.mjs` glob) | **0** | 247 | 247 | 0 | 0 | 0 | 24.8 s |
+| `npm run test:unit` (L1) | 0 | 185 | 185 | 0 | 0 | 0 | **0.5 s** |
+| `npm run test:cli` (L2) | 0 | 46 | 46 | 0 | 0 | 0 | 8.6 s |
+| `npm run test:build` (L3) | 0 | 16 | 16 | 0 | 0 | 0 | 23.6 s |
+| `make lint` | **0** | — | — | — | — | — | — |
 
-## Lane invariant, measured
+185 + 46 + 16 = 247, which is also the count before this change — every test was moved, none
+dropped or duplicated.
 
-Counted real `vite.build` / `createServer` calls per lane with `test/fixtures/vite-call-probe`
-injected via `NODE_OPTIONS`:
+## Lane invariant, measured on both dimensions
 
-| lane | build | createServer |
-|---|---|---|
-| `test:unit` | 0 | 0 |
-| `test:cli` | 0 | 4 (dev servers — L2 by definition) |
-| `test:build` | 11 | 0 |
+The criterion has two halves, **build and spawn**. Round 1 measured only the first and asserted
+the second, which is how P1 #A1 (an L1 file spawning four subprocesses) got through.
 
-Nothing asserts this invariant yet; filed as `test-lane-invariant-unguarded` (P2).
+| lane | build | createServer | spawn |
+|---|---|---|---|
+| `test:unit` | 0 | 0 | **0** |
+| `test:cli` | 0 | 4 (dev servers — L2 by definition) | 39 |
+| `test:build` | 11 | 0 | 6 |
+
+Two separate loader probes: `test/fixtures/vite-call-probe` (committed, built for S12) counts
+`vite.build` / `createServer`; a `child_process` wrapper counts subprocess creation. **They must be
+injected in separate runs** — combining both in one `NODE_OPTIONS` silently zeroed the vite counts
+(measured, not assumed).
+
+Independently of the probe, L1 is now *structurally* incapable of spawning: none of its eight files
+mentions `child_process`, `spawnSync`, `spawn(`, `execSync`, `execFileSync`, `execFile(` or `fork(`.
+
+Nothing asserts this invariant in the suite itself; tracked as `test-lane-invariant-unguarded` (P2).
 
 ## Membership check
 
-15 test files on disk, 15 covered across the three lanes, no file in two lanes, none missing —
-verified programmatically against `package.json`, not by reading.
+15 test files matched by the gate's glob, 15 covered across the three lane lists, no file in two
+lanes, none missing — verified programmatically against `package.json`. `test/helpers/cli-env.mjs`
+is deliberately not `*.test.mjs`, so the glob does not collect it as a test file; `make lint` still
+parses it.

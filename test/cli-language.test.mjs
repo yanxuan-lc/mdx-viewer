@@ -6,19 +6,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { parseLanguageArgument, resolveCliLanguage } from "../src/cli/language.mjs";
 import { mdxvPlugin } from "../src/cli/plugin.mjs";
-
-function environment(overrides = {}) {
-  const next = { ...process.env, ...overrides };
-  if (overrides.MDXV_LANG === undefined) delete next.MDXV_LANG;
-  return next;
-}
-
-function systemLocalePreload(locale) {
-  const source = locale === "throw"
-    ? "Intl.DateTimeFormat=()=>{throw new Error('unavailable')};"
-    : `Intl.DateTimeFormat=()=>({resolvedOptions:()=>({locale:${JSON.stringify(locale)}})});`;
-  return `data:text/javascript;base64,${Buffer.from(source).toString("base64")}`;
-}
+import { environment, systemLocalePreload } from "./helpers/cli-env.mjs";
 
 async function startPreview({ args, env, preload, port }) {
   const child = spawn(process.execPath, [

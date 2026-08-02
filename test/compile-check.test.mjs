@@ -1,18 +1,14 @@
 /* ============================================================
-   单元测试 · src/cli/compile-check.mjs + src/cli/output.mjs 的 check-* 呈现
-   —— 纯函数 + 直接函数调用为主（子进程级 CLI 场景在 test/compile-check.cli.test.mjs，
-      由 e2e-author 负责）。唯一例外：#A1 那条 bin/mdxv.mjs 里的裸 argv 探测本身就是
-      「argv 怎么拼」这个问题，无法脱离真实子进程复现，故该组 3 个测试真的 spawn 了
-      `bin/mdxv.mjs`（code-review #A1 的回归测试，由本文件负责而非 e2e-author's 文件，
-      因为修的是这次的 fix，不是新场景）。
-      覆盖 S1-S5、S8-S10、S13、S18、S19（内容层）与 S11（着色纯逻辑）；
-      S6/S7/S14/S15/S16（argv 接线 / 流分工 / demo 篇数）与 S12（性能）不在本文件。
+   L1 进程内单测 · src/cli/compile-check.mjs + src/cli/output.mjs 的 check-* 呈现
+   —— 全部是直接函数调用，**零子进程**（test:unit 车道的判据就是这一条）。
+      需要真实 argv 的 #A1 / #B5 裸 argv 探测回归组已移入 test/compile-check.cli.test.mjs：
+      那四条测的是「argv 怎么拼」，脱离真实子进程无法复现，因此按依赖表面属 L2。
+      覆盖 S1-S5、S8-S10、S13、S18、S19（内容层）与 S11（着色纯逻辑）。
    ============================================================ */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { join, relative, resolve as resolvePath } from "node:path";
 import { compile } from "@mdx-js/mdx";
@@ -22,15 +18,6 @@ import { mdxOptions } from "../src/mdx/plugins.mjs";
 
 const FIXTURES = fileURLToPath(new URL("./fixtures/compile-check/", import.meta.url));
 const doc = (name) => join(FIXTURES, name);
-const REPO_ROOT = fileURLToPath(new URL("..", import.meta.url));
-const { MDXV_LANG, ...CLEAN_ENV } = process.env;
-/** One real `bin/mdxv.mjs` subprocess invocation, for the #A1 argv-probe regression below —
- * the bug lives in a bare-argv probe in `bin/mdxv.mjs` itself, so unlike the rest of this
- * file it cannot be reproduced as a direct function call; the subprocess-level suite for
- * `--check` otherwise lives in `test/compile-check.cli.test.mjs` (e2e-author's). */
-function runMdxv(args) {
-  return spawnSync(process.execPath, ["bin/mdxv.mjs", ...args], { cwd: REPO_ROOT, encoding: "utf8", env: CLEAN_ENV });
-}
 
 // ---- describeCompileFailure：三种实测异常形状 -------------------------------
 
@@ -248,32 +235,6 @@ test("S11: resolveCheckColors decides colour per stream, not from one shared dec
   assert.deepEqual(resolveCheckColors({ stdoutIsTTY: false, stderrIsTTY: true, env: {} }), { report: false, diagnostic: true });
   assert.deepEqual(resolveCheckColors({ stdoutIsTTY: true, stderrIsTTY: false, env: {} }), { report: true, diagnostic: false });
   assert.deepEqual(resolveCheckColors({ stdoutIsTTY: true, stderrIsTTY: true, env: { NO_COLOR: "" } }), { report: false, diagnostic: false });
-});
-
-// ---- #A1: the `--check` bare-argv probe must agree with cac's own boolean coercion ----------
-
-test("#A1: `--check=true` is detected by the bare-argv probe, so an argument-level failure alongside it exits 2 (not 1)", () => {
-  const result = runMdxv(["--check=true", doc("pass.mdx"), "--lang", "xx-XX"]);
-  assert.equal(result.status, 2, `previously exited 1 (misdiagnosed as a broken document): stderr=${result.stderr}`);
-  assert.match(result.stderr, /^Error: /);
-});
-
-test("#A1: bare `--check` still exits 2 on the same argument-level failure (control, must not regress)", () => {
-  const result = runMdxv(["--check", doc("pass.mdx"), "--lang", "xx-XX"]);
-  assert.equal(result.status, 2);
-  assert.match(result.stderr, /^Error: /);
-});
-
-test("#A1: `--check=false` is cac's one literal falsy spelling, so it must NOT be swept into check-mode's exit-2 accounting", () => {
-  const result = runMdxv(["--check=false", doc("pass.mdx"), "--lang", "xx-XX"]);
-  assert.equal(result.status, 1, "an argument-level failure while --check is off exits 1, same as with no --check flag at all");
-  assert.match(result.stderr, /^Error: /);
-});
-
-test("#B5: after a bare `--`, `--check` is no longer an option to cac, so the probe must not claim check-mode either", () => {
-  const result = runMdxv(["--lang", "xx-XX", "--", "--check"]);
-  assert.equal(result.status, 1, `cac gives opts.check === undefined here, so the contract is exit 1; previously the probe saw the token and exited 2: stderr=${result.stderr}`);
-  assert.match(result.stderr, /^Error: /);
 });
 
 test("S10 (help clause): mdxv --help names --check's compile-only boundary as a mechanism (not a closed list), worded as a top-level ESM statement rather than a bare 'import', marks its examples as non-exhaustive, and carves out fenced code", () => {

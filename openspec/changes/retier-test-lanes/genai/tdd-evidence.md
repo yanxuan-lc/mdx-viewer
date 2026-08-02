@@ -1,5 +1,7 @@
 # tdd-evidence — retier-test-lanes
 
+Commit: 3bd40e4ddabb98e2a7741ab0fb5def00dda052d6
+
 Re-partition the test lanes by **dependency surface** instead of by (mislabelled) elapsed time.
 Lane `min`: no spec node; input is the task description. No product code changed — this touches
 test files, `package.json`, `Makefile` and the docs that describe them.
@@ -38,12 +40,21 @@ silently reported both. Only the call-counting probe attributed it correctly.
 
 | lane | criterion (greppable, does not drift) | files | tests | wall |
 |---|---|---|---|---|
-| `test:unit` | in-process, imports `src/`, zero spawn | 8 | 189 | **1.3 s** |
-| `test:cli` | spawns `bin/`, asserts stdout/exit code, no build (dev server counts as L2) | 4 | 42 | 7.7 s |
-| `test:build` | runs a real Vite build | 3 | 16 | 22.6 s |
+| `test:unit` | in-process, imports `src/`, zero spawn | 8 | 185 | **0.5 s** |
+| `test:cli` | spawns `bin/`, asserts stdout/exit code, no build (dev server counts as L2) | 4 | 46 | 8.4 s |
+| `test:build` | runs a real Vite build | 3 | 16 | 22.1 s |
 
-Lane invariant verified with the same probe: `test:unit` build=0 server=0 · `test:cli` build=0
-server=4 · `test:build` build=11.
+Lane invariant measured on **both** dimensions (see the review round below — the first attempt
+measured only one of them):
+
+| lane | build | createServer | spawn |
+|---|---|---|---|
+| `test:unit` | 0 | 0 | **0** |
+| `test:cli` | 0 | 4 | 39 |
+| `test:build` | 11 | 0 | 6 |
+
+The two loader probes must be injected **separately** — running both in one `NODE_OPTIONS`
+silently zeroed the vite probe's counts (measured, not assumed).
 
 `npm test` keeps its `test/*.test.mjs` glob. The gate's load-bearing property is
 **no exceptions** — a new test file joins it automatically, without anyone remembering to edit a
@@ -115,3 +126,66 @@ no stale reference to it remains outside `openspec/changes/archive/`.
 Filed `test-lane-invariant-unguarded` (P2): nothing asserts the lane invariant, so an L3
 assertion sliding back into L1/L2 would not go red — which is precisely how the original
 mislabel survived. Carries a re-verifiable criterion using the probe.
+
+
+## Review round 1 — 2 × P1, both fixed
+
+**P1 #A1 — the L1 criterion was false on the day it was written.** `test/compile-check.test.mjs`
+sat in `test:unit` while spawning `bin/mdxv.mjs` four times through a local `runMdxv()` helper
+(the #A1 / #B5 bare-argv probe regressions). So this change **recreated, inside the very commit
+meant to eliminate it, the class of false lane label it was paying down.**
+
+Why it got through is the part worth keeping: the evidence line "lane invariant verified with the
+probe" used the vite-call probe, which counts `build` / `createServer` only. **The spawn half of
+the criterion was declared and never measured.** A `spawnSync` grep does not see it either,
+because the calls go through a helper — the same indirection that hid S20 from every earlier
+grep, noted two paragraphs up in this very file and still not generalised.
+
+Fixed by moving the four argv-probe tests to `test/compile-check.cli.test.mjs` (L2, where they
+belong by the criterion — they test argv assembly at the process boundary and cannot be a direct
+call). L1 is now genuinely zero-spawn: 185 tests, **0.5 s**. Verified with a second loader probe
+that wraps `child_process`, written for this purpose.
+
+Two self-inflicted errors during that fix, both caught by running rather than reading:
+
+- the first `child_process` probe recursed infinitely (`import * as real from "node:child_process"`
+  resolved back through its own hook), reporting 27 517 spawns. Fixed by short-circuiting when
+  `parentURL` is the synthetic module.
+- the `unitFixture` helper was inserted by a `str.replace` whose anchor no longer existed (I had
+  already deleted the `abs` line it keyed on) and, unlike the other replacements in the same
+  script, that one carried no assert — so it silently did nothing and three tests failed with
+  `ReferenceError`. Every replacement in the follow-up is asserted.
+
+**P1 #A2 — `CONTRIBUTING.md` / `CONTRIBUTING.zh-CN.md` were not updated**, and still told
+contributors to "add the file to the `test:unit` list" — the instruction that reproduces this
+defect. AGENTS.md and both READMEs had been updated; the two documents that most directly drive
+contributor behaviour had not. Both now describe the three lanes and state the rule explicitly:
+must spawn → `test:cli`; must build → `test:build`, even for a single assertion.
+
+Also fixed from the same review:
+
+- `#B1` (P2) — the four shared matrix exports are now inside a `describe()`. A root-level
+  `before()` runs even under `--test-name-pattern`, so "run just A3" was paying four real builds
+  (~16 s). Verified: it is now 1 build.
+- `#B2` (P2) — orphaned `readFileSync` import left in `cli-output.test.mjs` when `S3` moved out.
+- `#B5` (P3) — `compile-check.cli.test.mjs`'s header still claimed "S1–S16 / S18 / S19" and
+  "pairs with `bin/mdxx.mjs`", contradicting the L2 line directly below it.
+- `#B8` — the `test-lane-invariant-unguarded` backlog entry's criterion covered only the build
+  dimension, so implementing it would not have caught `#A1`. Rewritten to cover both, with the
+  measured baseline and the "inject the probes separately" caveat.
+
+Not changed: the reviewer's observation that no lane is a gate — the only gated command is the
+full `npm test` (24.8 s), so the 0.5 s inner loop buys nothing at the gate. True, and out of
+scope for this change.
+
+## Final numbers
+
+| command | result | wall |
+|---|---|---|
+| `npm run test:unit` | 185 pass / 0 fail | **0.5 s** |
+| `npm run test:cli` | 46 pass / 0 fail | 8.4 s |
+| `npm run test:build` | 16 pass / 0 fail | 22.1 s |
+| `npm test` | **247 pass / 0 fail / 0 skipped** | 24.8 s |
+| `make lint` | exit 0 | — |
+
+185 + 46 + 16 = 247, unchanged from before this change.

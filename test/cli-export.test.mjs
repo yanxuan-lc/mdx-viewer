@@ -6,7 +6,7 @@
       （A5 的两条断言共用，见下）、S3 一次（默认语言路径，不能借矩阵任何一例）。
       两处来源文件里**只跑 dev server、不跑构建**的同族场景（如 mdxv 预览矩阵）留在原地。
    ============================================================ */
-import test, { before, after } from "node:test";
+import test, { describe, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
@@ -41,53 +41,58 @@ test("A3: expected export build failure is localized and stack-free", () => {
   }
 });
 
-/* locale 来源矩阵的四次导出在 before() 里跑一次，两条断言共用。
-   「A5: mdxx flag wins」与矩阵的 flag 例是**同一条命令**（同 fixture、同 --lang en-US、
-   同 MDXV_LANG=zh-CN），此前各自跑了一次构建。共用之后省掉一次，两条测试名都保留——
-   矩阵的用例名不写「flag 压过 environment」，删掉那条会丢掉这层可发现性。 */
-const LOCALE_CASES = [
-  { name: "flag", args: ["--lang", "en-US"], env: environment({ MDXV_LANG: "zh-CN" }), preload: undefined, locale: "en-US", source: "argument", output: /self-contained/ },
-  { name: "environment", args: [], env: environment({ MDXV_LANG: "zh-CN" }), preload: undefined, locale: "zh-CN", source: "environment", output: /自包含/ },
-  { name: "system", args: [], env: environment({ MDXV_LANG: undefined }), preload: systemLocalePreload("zh-SG"), locale: "zh-CN", source: "system", output: /自包含/ },
-  { name: "fallback", args: [], env: environment({ MDXV_LANG: undefined }), preload: systemLocalePreload("throw"), locale: "en-US", source: "fallback", output: /self-contained/ },
-];
+/* 四次矩阵导出包在 describe 里：node:test 的根级 before() 即便用 --test-name-pattern
+   只挑一条无关用例也照跑，会让「只跑 A3」白付四次真实构建（约 16s）。包进 describe
+   之后 before() 只在这组用例真的要跑时触发，A3 / S3 的失败信息也不再混进矩阵的文案。 */
+describe("A5: locale provenance in real exports (four shared builds)", () => {
+  /* locale 来源矩阵的四次导出在 before() 里跑一次，两条断言共用。
+     「A5: mdxx flag wins」与矩阵的 flag 例是**同一条命令**（同 fixture、同 --lang en-US、
+     同 MDXV_LANG=zh-CN），此前各自跑了一次构建。共用之后省掉一次，两条测试名都保留——
+     矩阵的用例名不写「flag 压过 environment」，删掉那条会丢掉这层可发现性。 */
+  const LOCALE_CASES = [
+    { name: "flag", args: ["--lang", "en-US"], env: environment({ MDXV_LANG: "zh-CN" }), preload: undefined, locale: "en-US", source: "argument", output: /self-contained/ },
+    { name: "environment", args: [], env: environment({ MDXV_LANG: "zh-CN" }), preload: undefined, locale: "zh-CN", source: "environment", output: /自包含/ },
+    { name: "system", args: [], env: environment({ MDXV_LANG: undefined }), preload: systemLocalePreload("zh-SG"), locale: "zh-CN", source: "system", output: /自包含/ },
+    { name: "fallback", args: [], env: environment({ MDXV_LANG: undefined }), preload: systemLocalePreload("throw"), locale: "en-US", source: "fallback", output: /self-contained/ },
+  ];
 
-/** @type {Map<string, {result: import("node:child_process").SpawnSyncReturns<string>, html: string}>} */
-const localeExports = new Map();
-let localeDirectory;
+  /** @type {Map<string, {result: import("node:child_process").SpawnSyncReturns<string>, html: string}>} */
+  const localeExports = new Map();
+  let localeDirectory;
 
-before(() => {
-  localeDirectory = mkdtempSync(join(tmpdir(), "mdxv-cli-matrix-"));
-  for (const scenario of LOCALE_CASES) {
-    const output = join(localeDirectory, `${scenario.name}.html`);
-    const result = spawnSync(process.execPath, [
-      ...(scenario.preload ? ["--import", scenario.preload] : []),
-      "bin/mdxx.mjs", "test/fixtures/export-sample.mdx", output, ...scenario.args,
-    ], { encoding: "utf8", env: scenario.env, timeout: 180_000 });
-    // 读 html 前先确认成功，否则 readFileSync 的 ENOENT 会盖掉真实的构建失败原因。
-    assert.equal(result.status, 0, `${scenario.name} export should succeed: ${result.stderr}`);
-    localeExports.set(scenario.name, { result, html: readFileSync(output, "utf8") });
-  }
-});
+  before(() => {
+    localeDirectory = mkdtempSync(join(tmpdir(), "mdxv-cli-matrix-"));
+    for (const scenario of LOCALE_CASES) {
+      const output = join(localeDirectory, `${scenario.name}.html`);
+      const result = spawnSync(process.execPath, [
+        ...(scenario.preload ? ["--import", scenario.preload] : []),
+        "bin/mdxx.mjs", "test/fixtures/export-sample.mdx", output, ...scenario.args,
+      ], { encoding: "utf8", env: scenario.env, timeout: 180_000 });
+      // 读 html 前先确认成功，否则 readFileSync 的 ENOENT 会盖掉真实的构建失败原因。
+      assert.equal(result.status, 0, `${scenario.name} export should succeed: ${result.stderr}`);
+      localeExports.set(scenario.name, { result, html: readFileSync(output, "utf8") });
+    }
+  });
 
-after(() => rmSync(localeDirectory, { recursive: true, force: true }));
+  after(() => rmSync(localeDirectory, { recursive: true, force: true }));
 
-test("A5: mdxx flag wins over environment in a real localized export", () => {
-  const { result, html } = localeExports.get("flag");
-  assert.equal(result.status, 0);
-  assert.match(result.stderr, /self-contained/);
-  assert.match(html, /<html[^>]+lang="en-US"/i);
-});
+  test("A5: mdxx flag wins over environment in a real localized export", () => {
+    const { result, html } = localeExports.get("flag");
+    assert.equal(result.status, 0);
+    assert.match(result.stderr, /self-contained/);
+    assert.match(html, /<html[^>]+lang="en-US"/i);
+  });
 
-test("A5: real mdxx subprocess matrix bundles Locale provenance for every selection source", () => {
-  for (const scenario of LOCALE_CASES) {
-    const { result, html } = localeExports.get(scenario.name);
-    assert.equal(result.status, 0, scenario.name);
-    assert.match(result.stderr, scenario.output, scenario.name);
-    assert.match(html, new RegExp(`<html[^>]+lang="${scenario.locale}"`, "i"), scenario.name);
-    assert.match(html, new RegExp(`initialLocale["']?\\s*:\\s*["']${scenario.locale}["']`), scenario.name);
-    assert.match(html, new RegExp(`localeSource["']?\\s*:\\s*["']${scenario.source}["']`), scenario.name);
-  }
+  test("A5: real mdxx subprocess matrix bundles Locale provenance for every selection source", () => {
+    for (const scenario of LOCALE_CASES) {
+      const { result, html } = localeExports.get(scenario.name);
+      assert.equal(result.status, 0, scenario.name);
+      assert.match(result.stderr, scenario.output, scenario.name);
+      assert.match(html, new RegExp(`<html[^>]+lang="${scenario.locale}"`, "i"), scenario.name);
+      assert.match(html, new RegExp(`initialLocale["']?\\s*:\\s*["']${scenario.locale}["']`), scenario.name);
+      assert.match(html, new RegExp(`localeSource["']?\\s*:\\s*["']${scenario.source}["']`), scenario.name);
+    }
+  });
 });
 
 test("S3: export command writes a complete plain-text status panel to stderr", () => {

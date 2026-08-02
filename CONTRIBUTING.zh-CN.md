@@ -130,8 +130,15 @@ make test-e2e    # Playwright 端到端（首次需 npx playwright install）
 make demo        # 用眼睛过一遍组件总览：两种主题 × 两种语言
 ```
 
-- **新增纯逻辑模块** → 补 `test/*.test.mjs`，**并把文件加进 `package.json` 的 `test:unit` 清单**。
-  该清单是显式枚举的，不加进去 `make test-unit` 跑不到它。
+- **车道按依赖表面选，不按耗时。** 每个 `test/*.test.mjs` 属于且只属于 `package.json` 里三条显式
+  清单之一，**新文件必须加进对的那条**，否则那条 `make test-<lane>` 跑不到它（`make test` 走 glob，
+  门控不会漏）：
+  - `test:unit` —— 只在进程内，import `src/`，**零子进程**。亚秒级。
+  - `test:cli` —— spawn `bin/`，断 stdout / 退出码，**不跑 Vite 构建**（起 dev server 可以）。
+  - `test:build` —— 跑真实 Vite 构建。最慢，只放确实需要构建的断言。
+- **新增纯逻辑模块** → 补 `test/*.test.mjs`，进 `test:unit`。
+- **必须 spawn CLI 的测试** → 进 `test:cli`，哪怕它很快。**必须构建的测试** → 进 `test:build`，
+  哪怕只有一条断言。把构建混进低一级车道，正是这套划分要防的缺陷 —— 上次它潜伏了好几个月。
 - **改了编译管线** → 在 `test/mdx-pipeline.test.mjs` 补断言（它用官方 `@mdx-js/mdx` 编译）。
 - **碰到自包含约束** → 在 `test/export.test.mjs` 补断言。
 - **改了界面行为** → 补 `e2e/` spec。注意：任何断言目录（TOC）的测试都必须给 >1700px 的视口，因为

@@ -147,8 +147,17 @@ make test-e2e    # Playwright end-to-end (first run: npx playwright install)
 make demo        # eyeball the gallery in both themes and both languages
 ```
 
-- **New pure-logic module** → add a `test/*.test.mjs`, and **add that file to the `test:unit` list in
-  `package.json`**. The list is explicit; `make test-unit` will not pick it up otherwise.
+- **Pick the lane by dependency surface, not by how long it takes.** Every `test/*.test.mjs` belongs
+  to exactly one of three explicit lists in `package.json`, and **a new file must be added to the
+  right one** or that `make test-<lane>` will not pick it up (`make test` globs, so the gate never
+  misses it):
+  - `test:unit` — in-process only, imports `src/`, **zero subprocesses**. Sub-second.
+  - `test:cli` — spawns `bin/`, asserts stdout / exit code, **no Vite build** (a dev server is fine).
+  - `test:build` — runs a real Vite build. Slowest; keep it to assertions that genuinely need one.
+- **New pure-logic module** → add a `test/*.test.mjs` in `test:unit`.
+- **A test that must spawn a CLI** → `test:cli`, even if it is fast. **A test that must build** →
+  `test:build`, even if it is one assertion. Mixing a build into a lower lane is the exact defect
+  this partition exists to prevent — it stayed hidden for months last time.
 - **Touched the compile pipeline** → add an assertion to `test/mdx-pipeline.test.mjs`, which compiles
   through the official `@mdx-js/mdx`.
 - **Touched anything affecting self-containment** → assert it in `test/export.test.mjs`.

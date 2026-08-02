@@ -1,8 +1,9 @@
 /* ============================================================
    E2E · `mdxv --check` — 校验模式的黑盒 CLI 契约测试
-   —— 依据 openspec/changes/mdx-compile-check/specs/compile-check/spec.md 的场景 S1–S16 / S18 / S19
-      逐条断言，只驱动真实子进程 `bin/mdxv.mjs`（部分场景配对 `bin/mdxx.mjs`），
-      从 stdout / stderr / exit code 三处分别断言 —— 不导入、不注入、不替换编译函数（R4）。
+   —— 依据 openspec/specs/compile-check/spec.md 的场景逐条断言：本文件覆盖
+      S1–S11 / S13 / S15 / S16 / S18 / S19，外加 #A1 / #B5 裸 argv 探测回归组。
+      只驱动真实子进程 `bin/mdxv.mjs`，从 stdout / stderr / exit code 三处分别断言
+      —— 不导入、不注入、不替换编译函数（R4）。
       本文件属 L2 子进程车道（test:cli）：只 spawn `bin/mdxv.mjs`，**不跑任何 Vite 构建**。
       两条需要真实 `mdxx` 构建的配对场景 S14 / S20 在 test/compile-check.export-pairing.test.mjs
       （L3，test:build）；S12「--check 不进构建路径」在 test/compile-check.no-build.test.mjs（L2）。
@@ -28,6 +29,9 @@ function runCheck(args, { timeout = 30_000, env = CLEAN_ENV } = {}) {
 }
 
 const rel = (...segments) => join("test", "fixtures", "compile-check-e2e", ...segments).split("\\").join("/");
+/** #A1 / #B5 回归组用的是单测那套 fixture（test/fixtures/compile-check/）——
+ *  它们只需要一份存在且合法的 .mdx，断言全在 argv 与退出码上，不在文档内容上。 */
+const unitFixture = (name) => join(REPO, "test", "fixtures", "compile-check", name);
 
 /** @param {number} port @returns {Promise<void>} resolves on connect, rejects on refused/timeout (S7) */
 function connectTo(port) {
@@ -321,6 +325,32 @@ test("S13: format follows the extension in both directions — .md passes, byte-
 
   assert.equal(mdxResult.status, 1);
   assert.match(mdxResult.stdout, /^✗ .+:\d+:\d+  Unexpected character `\|` \(U\+007C\) in name/);
+});
+
+// ---- #A1: the `--check` bare-argv probe must agree with cac's own boolean coercion ----------
+
+test("#A1: `--check=true` is detected by the bare-argv probe, so an argument-level failure alongside it exits 2 (not 1)", () => {
+  const result = runCheck(["--check=true", unitFixture("pass.mdx"), "--lang", "xx-XX"]);
+  assert.equal(result.status, 2, `previously exited 1 (misdiagnosed as a broken document): stderr=${result.stderr}`);
+  assert.match(result.stderr, /^Error: /);
+});
+
+test("#A1: bare `--check` still exits 2 on the same argument-level failure (control, must not regress)", () => {
+  const result = runCheck(["--check", unitFixture("pass.mdx"), "--lang", "xx-XX"]);
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /^Error: /);
+});
+
+test("#A1: `--check=false` is cac's one literal falsy spelling, so it must NOT be swept into check-mode's exit-2 accounting", () => {
+  const result = runCheck(["--check=false", unitFixture("pass.mdx"), "--lang", "xx-XX"]);
+  assert.equal(result.status, 1, "an argument-level failure while --check is off exits 1, same as with no --check flag at all");
+  assert.match(result.stderr, /^Error: /);
+});
+
+test("#B5: after a bare `--`, `--check` is no longer an option to cac, so the probe must not claim check-mode either", () => {
+  const result = runCheck(["--lang", "xx-XX", "--", "--check"]);
+  assert.equal(result.status, 1, `cac gives opts.check === undefined here, so the contract is exit 1; previously the probe saw the token and exited 2: stderr=${result.stderr}`);
+  assert.match(result.stderr, /^Error: /);
 });
 
 test("S15: a piped report for a >=20-document directory loses no line to an early process exit", () => {

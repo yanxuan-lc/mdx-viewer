@@ -1,6 +1,6 @@
 # suite-report — fix-s12-structural-criterion
 
-Commit: 530cfccadb9c68cea31439bf0866233979c7c718
+Commit: af1c8710e4b70a3499eaac738a8a49fa11bd96f7
 
 The minimal lane's verification carrier: the project's own suite, run whole against the
 working tree at the commit above.
@@ -9,7 +9,7 @@ working tree at the commit above.
 
 | command | result | wall |
 |---|---|---|
-| `npm test` (= `node --test test/*.test.mjs`, the full gate) | **247 pass / 0 fail / 0 skipped / 0 todo** | 28.8 s |
+| `npm test` (= `node --test test/*.test.mjs`, the full gate) | **247 pass / 0 fail / 0 skipped / 0 todo** | 31.5 s |
 | `npm run test:unit` | **237 pass / 0 fail** | 27.5 s |
 | `make lint` | exit 0 | — |
 

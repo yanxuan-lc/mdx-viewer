@@ -2,170 +2,160 @@
 
 - **Mode**: Incremental（合并前门禁）
 - **Branch**: dev
-- **Commit**: 0afc3edb827bf83cbda67e085ad3268bbacc9e7e
+- **Commit**: 2cb7589414649342d2cf30a4f7802f9acb74b06a
 - **Reviewer model family**: Claude (Opus 5)
-- **Round**: 3（round 1 审 `3bd40e4`；round 2 审 `46fe6a8`；round 3 审
-  `git diff 46fe6a8 0afc3ed`，状态就地更新）
-- **Scope**: `3bd40e4` + `46fe6a8` + `0afc3ed`；`280f46f` 及更早不在本轮
-- **Lane**: `min`，无 change-local spec 目录。Verdict A 的比对基准取**任务描述 + 车道判据本身**
-  （Makefile / AGENTS.md / CONTRIBUTING 里写下的三条判据是这次唯一的可验证契约），
-  外加 `genai/` 下的证据载体是否如实描述被审提交。
+- **Round**: 4（round 1 `3bd40e4` / round 2 `46fe6a8` / round 3 `0afc3ed` / round 4
+  `git diff 0afc3ed 2cb7589`，状态就地更新）
+- **Scope**: `3bd40e4` → `2cb7589`；`280f46f` 及更早不在本轮
+- **Lane**: `min`，无 change-local spec 目录。Verdict A 的基准是**任务描述 + 车道判据本身**
+  （Makefile / AGENTS.md / CONTRIBUTING 的三条判据），外加 `genai/` 证据载体是否如实描述被审提交。
 
-## 复核证据（round 3 自己重跑，不采信记录）
+## 复核证据（round 4 自己重跑 + 自己重推，不采信记录）
 
-退出码取自命令本身，不经 `tail` / `grep` 管道。
+`2cb7589` **未触碰任何可执行文件**（`git diff --name-status` 只有 AGENTS.md、两份 backlog、
+两份证据、checklist），所以 `0afc3ed` 的测量在本提交依然成立；即便如此仍重跑一遍：
 
-| 命令 | exit | tests | pass | fail | cancelled | wall（我实测） | suite-report 记录 |
-|---|---|---|---|---|---|---|---|
-| `npm test` | **0** | 247 | 247 | 0 | 0 | 24.7 s | 247 / 0 / 0 · 24.8 s ✓ |
-| `npm run test:unit` | 0 | 185 | 185 | 0 | 0 | **0.56 s** | 185 · 0.5 s ✓ |
-| `npm run test:cli` | 0 | 46 | 46 | 0 | 0 | 8.35 s | 46 · 8.6 s ✓ |
-| `npm run test:build` | 0 | 16 | 16 | 0 | 0 | 23.13 s | 16 · 23.6 s ✓ |
-| `make lint` | **0** | — | — | — | — | 38 files parsed | exit 0 ✓ |
+| 命令 | exit | tests | pass | fail | cancelled | wall（我实测） |
+|---|---|---|---|---|---|---|
+| `npm test` | **0** | 247 | 247 | 0 | 0 | 24.2 s |
+| `make lint` | **0** | — | — | — | — | 38 files parsed |
 
-六项独立核对（不改仓库，脚本在 scratchpad）：
+三项独立推导（脚本在 scratchpad，不改仓库）：
 
-1. **helper 抽取无损** —— 把 `46fe6a8` 里 `cli-language` 与 `cli-export` 各自那两份拷贝、和
-   `test/helpers/cli-env.mjs` 的导出版本三方对拉（剥掉 `export ` 前缀后）：
-   **两份旧拷贝彼此逐字节相同，抽出来的版本与它们也逐字节相同**。
-2. **glob 不收 helper** —— `test/*.test.mjs` 展开为 **15 个文件**，不含 `helpers/cli-env.mjs`；
-   `node --test test/*.test.mjs` 实际装载 15 个单元。你的判断成立。
-3. **lint 收得到 helper** —— `make lint` 用 `find $(LINT_DIRS) -name '*.mjs'`（**递归**），
-   `test/helpers/cli-env.mjs` 确实在集合里，`node --check` 单独跑过也 PARSE_OK，
-   全量 38 files parsed / exit 0。
-4. **L1 零 spawn 仍成立，且这次按传递闭包核** —— 顺着相对 import 展开三条车道：
-   L1 闭包**就是它自己那 8 个文件**（没有任何 `test/` 内的相对 import），spawn 面 0 命中；
-   L2 闭包 5 个文件、L3 闭包 4 个（各多出 helper 一枚）。见 #B12。
-5. **helper 只有两个消费方** —— `grep -rln` 确认仅 `cli-language`（L2）与 `cli-export`（L3），
-   与文件头注释一致；全仓再无 `environment` / `systemLocalePreload` 的本地副本残留。
-6. **status 门只剩一处** —— 见 #B7。
+1. **传递闭包我自己重走了一遍**，按 `suite-report.md` 现在写下的定义（从车道清单出发，
+   递归跟随所有相对 import，含进入 `src/` 的）。结果见 #A6：L1 与 L3 **和你完全一致**，
+   L2 **不一致**。
+2. **数字副本全仓 grep**（不靠读）：仍有第五份，见 #A5。
+3. **AGENTS.md 新表逐行核对**车道清单与文件内容：车道归属 16 行全对，一处计数错，见 #B14。
 
 ## Verdict A — Spec-compliance（code-vs-spec；不评判该不该做这件事）
 **Status: NOT HELD**
 
 - [x] 🟠 **P1 #A1** ~~L1「零 spawn」判据当场即为假~~ — **Resolved**（round 2）。
 - [x] 🟠 **P1 #A2** ~~两份 CONTRIBUTING 仍只教 `test:unit` 一条清单~~ — **Resolved**（round 2）。
+- [x] 🟠 **P1 #A3** ~~`suite-report.md` 只换戳不换数字~~ — **Resolved**（round 3）。
+- [x] 🟠 **P1 #A4** ~~#A3 的修法只落到一个文件，`tdd-evidence.md` 比戳落后两轮~~ —
+  **Resolved**，而且是按我建议的**结构性**做法而非再手改一遍：测量数字撤出该文件、
+  「三条车道」表删掉 wall 列、「Commands run」与「Final numbers」改为指向 `suite-report.md`、
+  补上 rounds 2–4 记述。你把「我曾把轻量版判成 P3 后又升级、以及为什么」也写进了证据 ——
+  这一点值得点名：一份只记成功路径的证据，下一轮就会重犯同一个错。
 
-- [x] 🟠 **P1 #A3** ~~`suite-report.md` 只换了戳，一个数字都没改~~ — **Resolved**。整份按本提交
-  重测重写：Result 表换成 exit + 四个计数器、数字 185 / 46 / 16 / 247，算式改成
-  「185 + 46 + 16」，Lane invariant 表补上 spawn 列并记下「两个探针必须分开注入」。
-  我把每个数字都对了一遍实测，全部吻合（见上表）。另外两处做法值得点名认可:
-  提交里该文件的戳是 `Commit: PENDING`、由工作区最后一次动作补实 hash —— 这是这类
-  「戳必须晚于被戳提交」的自指约束**唯一正确的不动点**，不是遗漏;
-  文首那句「measured at the commit stamped above — **not carried over from an earlier round**」
-  把判据写进了文件本身，下一轮想再犯得先删掉这句话。
+- [ ] 🟠 **P1 #A5** `openspec/changes/retier-test-lanes/genai/tdd-evidence.md:99-100,147,179`
+  ＋ `AGENTS.md:181-182` — **「数字只有一处来源」这条规则本身现在是假的：第五份副本在同一份
+  文件的正文里。** 你把表格里的数字撤干净了，散在 prose 里的没有：
+  - **L147**「L1 is now genuinely zero-spawn: **185 tests, 0.5 s**」—— 一个测试计数 + 一个耗时。
+  - **L179**「the full `npm test` (**24.8 s**), so the **0.5 s** inner loop…」—— 两个耗时。
+  - **L99-100**「27.5 s → **0.5 s**（**1.3 s** as first landed；余下 **0.8 s**…）」—— 三个耗时。
+  这些今天**都还是对的**（我核过：185 / 0.5 s / 24.8 s 都成立），所以它不是「又一处假数字」，
+  而是**规则声明比实现宽**：`tdd-evidence.md` 第 105 行写着「Numbers live in exactly one file」，
+  而它自己有五处；`AGENTS.md:181-182` 那条注也写着「当前实测数字只有一处来源」，
+  它上方那张表里就有「63 条」「6 次构建」「4 次构建」「4 次真实 dev server」「10 条断言」。
+  按 #A1 同一条判据（**写下来的不变式为假 = P1**）判 P1：下一次加测试，L147 的 185 会静默变错，
+  而读者已被告知不必来这里查。这是本轮里同一主题的第四次复发，也是你让我 grep 的那个第五份。
+  **修法（建议按语义收窄而不是逐个删）**：把规则从「实测数字」改成它真正想守的那类 ——
+  **耗时与 pass/fail 计数只在 `suite-report.md`**；然后 L147 改成「零 spawn（计数与耗时见
+  `suite-report.md`）」、L179 与 L99-100 的耗时改成定性说法或指过去。
+  结构性事实（构建次数、文件数）留在 AGENTS.md 是合理的，只要规则别把它们也一起声称掉。
 
-- [ ] 🟠 **P1 #A4** `openspec/changes/retier-test-lanes/genai/tdd-evidence.md` —
-  **#A3 的修法只落到了一个文件，没有落到做法上；同一个缺陷现在在旁边这份证据里。**
-  这份文件的戳已经推到 `0afc3ed`，但内容停在 round 1 + 「Review round 1」那一节，
-  比戳落后**两轮**。具体四处：
-  - **L96** 「the inner loop went **27.5 s → 1.3 s**」—— 在本提交是 0.5 s。而同一份文件
-    L177 自己写着「the 0.5 s inner loop」，**文件内部自相矛盾**。
-  - **L99-108「## Commands run」** 仍未标注属于 round 1，表里是 189 / 42 / 16 ·
-    1.3 / 7.7 / 22.6 s —— 在 `0afc3ed` 上四行全错，且没有任何标签把它框回历史。
-  - **无 round 2 / round 3 记述**：`#B1` describe 化、`#B2`、`#B5`、`#B8`，以及本轮四条内联
-    修复（helper 抽取 / `sharedExport` / `after` 守卫 / 去掉恒真断言）在这份文件里**完全没有
-    痕迹**。`min` 车道没有 spec，这份文件就是「做了什么、为什么」的唯一记录。
-  - **L181「## Final numbers」仍是 pass/fail-only 格式** —— 正是本提交在 `suite-report.md` 里
-    刚刚论证为不安全的那个格式（#B9：describe 作用域 hook 抛错会记成 `cancelled` 而非
-    `fail`）。同一次提交里，一个文件采纳了新格式，旁边这个没有。
-  **修法**：补一节「## Review rounds 2–3」列清六条修复与 #B9 的格式决定；L99 标题改成
-  「## Commands run（round 1，改造前基线）」；L96 改成 0.5 s；「Final numbers」要么转成
-  exit + 计数器格式，要么删掉、改为指向 `suite-report.md`（**数字只留一份来源**，两份必然再漂）。
-  **我要明说自己判错过**：round 2 我把这条的轻量版记成了 P3 #B10，理由是「Final numbers 存在
-  且正确所以能覆盖前文」。那个理由不成立 —— #A3 的判据是「戳即断言这些数字测于此提交」，它不因
-  文件后面某一节恰好是对的而豁免。现在同一份文件的戳已越过两轮、还漏掉整轮改动、并且违反了它
-  兄弟文件在同一提交里刚立的规矩，所以按 #A3 同一把尺子升到 P1。这就是你让我找的第四个自伤，
-  而它真正的信号不是「又漏一处数字」，而是**第三个缺陷的修法被当成一次性修补,而不是一条做法**。
+- [ ] 🟠 **P1 #A6** `openspec/changes/retier-test-lanes/genai/suite-report.md`（闭包段）—
+  **L2 的闭包文件数 12 是错的，实测 15。** 我按你现在写下的定义独立重走（不看你的数字），
+  并留下了每一条边：
+  | 车道 | 你写的 | 我推导的 | spawn 提及 |
+  |---|---|---|---|
+  | L1 | 19 / 0 | **19 / 0** ✓ | 一致 |
+  | L2 | **12** / 4 | **15** / 4 ✗ | 提及数一致 |
+  | L3 | 4 / 3 | **4 / 3** ✓ | 一致 |
+  L2 闭包的 15 个是：4 个车道文件 + `test/helpers/cli-env.mjs` + 10 个 `src/`
+  （`cli/language` `cli/plugin` ← 车道文件；`cli/output` ← `compile-check.cli`；
+  再经 `cli/output → cli/compile-check → mdx/plugins → mdx/diagrams`、
+  `cli/output → i18n/locale → i18n/messages`、`cli/plugin → cli/resolve → cli/localized-docs`
+  展开）。**12 对不上任何一种可辩护的定义**：传递闭包含 `src/` = 15；只算 `test/` 下 = 5
+  （那是我 round 3 给的 5）；车道文件 + 一跳直接 import = 8。
+  结论不受影响（L2 该 spawn、L1 不 spawn 都成立），但这个数字所在的那句话恰恰是
+  「the numbers above are my own walk」—— 出处声明挂在了一个错数字上，而这正是本文件存在的理由。
+  按 #A3 / #A4 同一把尺子（戳即断言这些数字测于此提交）判 P1，虽然改动只是两个字符。
+  **修法**：12 → 15；顺带把定义里「follow every relative `from "./…"` import」补上
+  `import("./…")` 与无 `from` 的副作用 import 两种写法（我的推导已含这两种，今天没有实例，
+  但定义要能自证）。
 
 ## Verdict B — Code-quality
 **Status: HELD**（无未解决的 P0/P1）
 
 ## Tracked（P2 / P3，可留到 merge 之后）
 
-- [x] 🟡 **P2 #B1** ~~根级 `before()` 放大失败面、name-pattern 过滤仍付四次构建~~ —
-  **Resolved**（round 2，`describe()` 化）。
-- [x] 🟡 **P2 #B2** ~~`cli-output.test.mjs` 孤儿 import `readFileSync`~~ — **Resolved**（round 2）。
-- [x] 🔵 **P3 #B5** ~~`compile-check.cli.test.mjs` 头注释残留旧场景范围~~ — **Resolved**（round 2）。
-- [x] 🔵 **P3 #B8** ~~backlog 判据只覆盖构建维度~~ — **Resolved**（round 2）。
+- [x] 🟡 **P2 #B1** ~~根级 `before()` 放大失败面~~ — Resolved（round 2）。
+- [x] 🟡 **P2 #B2** ~~`cli-output.test.mjs` 孤儿 import~~ — Resolved（round 2）。
+- [x] 🟡 **P2 #B3** ~~两份逐字节相同的 env helper~~ — Resolved（round 3）。
+- [x] 🔵 **P3 #B4** ~~`localeExports.get()` 无守卫~~ — Resolved（round 3）。
+- [x] 🔵 **P3 #B5** ~~`compile-check.cli` 头注释旧场景范围~~ — Resolved（round 2）。
+- [x] 🔵 **P3 #B6** ~~`after` 未守卫 `localeDirectory`~~ — Resolved（round 3）。
+- [x] 🔵 **P3 #B7** ~~A5 两条恒真的 status 断言~~ — Resolved（round 3）。
+- [x] 🟡 **P2 #B8** ~~backlog 判据只覆盖构建维度~~ — Resolved（round 2）。
+- [x] 🟡 **P2 #B9** ~~汇总行会写「fail 0」~~ — Resolved（round 3，并已成为证据格式）。
+- [x] 🔵 **P3 #B10** ~~round-1 数字未标轮次~~ — Superseded by #A4（round 3）。
+- [x] 🟡 **P2 #B11** ~~`AGENTS.md` 测试表与 13 行后的判据自相矛盾~~ — **Resolved**。
+  新表 16 行我逐行对过 `package.json` 三条清单：L1 八行、L2 四行、L3 三行**与清单完全一致**，
+  `cli-language` / `cli-output` 已正确标 L2 并注明「spawn 两个 binary」，`~7s` 已删，
+  helper 单列一行标 `—` 并写明为何不叫 `*.test.mjs`。表下那条「不写耗时」的注是对的方向
+  （但措辞过宽，见 #A5）。
+- [x] 🔵 **P3 #B12** ~~结构论证是文件局部措辞~~ — **Resolved**：论证与 backlog 判据都改成
+  传递闭包，且 backlog 那条还点明了「`test/helpers/` 存在之后这一跳必须算进来」。
 
-- [x] 🟡 **P2 #B9** ~~describe 作用域 `before()` 失败时汇总行写「fail 0」，抄进证据会把红的记成
-  绿的~~ — **Resolved（在证据格式上）**。`suite-report.md` 改成记 exit + 四个计数器，并把成因
-  写进文件。这条你处理得比我建议的更好：我只说「加一列 exit」，你把**为什么**也写进去了，
-  下一个人不会把它当冗余列删掉。**但只落到了一个文件** —— `tdd-evidence.md` 的「Final numbers」
-  仍是旧格式，已并入 #A4。
+- [ ] 🟡 **P2 #B13** `openspec/changes/retier-test-lanes/genai/suite-report.md`（不变式表）
+  ＋ `test/compile-check.no-build.test.mjs:31-35` — **L2 的 `createServer = 4` 少算一次，
+  而少算的原因是探针在那一个文件上是瞎的。** 真值是 **5**：`cli-language` 的 mdxv 矩阵
+  4 例（L143-148，每例经 `startPreview` 起一次真实 dev server）＋ `no-build` 的
+  「probe liveness」1 次（L69）。之所以只记到 4：`no-build` 自己用
+  `probeEnv()` 给子进程重设 `MDXV_PROBE_OUT` 指向**它自己的临时记录文件**，并在 `finally` 里
+  删掉 —— 车道级注入的 `MDXV_PROBE_OUT` 被就地覆盖，那个 dev server 落进了私有文件。
+  更值得记的是推论：**车道级探针对 `compile-check.no-build.test.mjs` 的子进程完全没有覆盖**，
+  所以 L2 那个承重的 `build = 0` 在这一个文件上是**未被测量**的（它今天为真，由该文件自己的
+  断言保证，但不是由车道级测量保证）。我判 P2 而非 P1，是因为这两个数字要说明的事
+  （L2 合法起 dev server、L2 不跑构建）都不受影响，且正确的修法是**披露**而不是重测。
+  **修法**：在不变式表下加一句 —— 「`compile-check.no-build.test.mjs` 会覆盖
+  `MDXV_PROBE_OUT`，其子进程不计入本表；该文件的 build=0 由它自身的断言保证」；
+  真想合进来的话，车道级注入得用一个 `no-build` 不会覆盖的变量名。
 
-- [x] 🟡 **P2 #B3** ~~`environment()` / `systemLocalePreload()` 两份逐字节相同的拷贝~~ —
-  **Resolved**。抽到 `test/helpers/cli-env.mjs`，三方逐字节比对无差异（复核 1）；命名刻意避开
-  `*.test.mjs` 且**双重安全**（既不在 `test/` 顶层、也不以 `.test.mjs` 结尾），glob 不收、
-  lint 收得到（复核 2、3）。两个消费方行为不变：`environment()` 仍在**调用时**读 `process.env`，
-  从同模块函数变成跨模块导入不改变这一点；`cli-language` 的 preview 路径（L2）与 `cli-export`
-  的 export 路径（L3）用的是同一份实现，此前也是同一份字节，所以无一处依赖过本地定义。
+- [ ] 🟡 **P2 #B14** `AGENTS.md:158` — `test/diagram-theme.test.mjs` 那行写「**63 条**，
+  全进程内」，实测 **113**（`node --test` 的 `ℹ tests`）。同表其余可核计数我都核了且正确：
+  `export.test.mjs`「10 条断言」✓、`cli-export`「6 次构建」✓（A3 1 + 矩阵 4 + S3 1）、
+  `export-pairing`「4 次构建」✓（S14 2 + S20 2）、`cli-language`「4 次真实 dev server」
+  ✓（就该文件而言，另见 #B13）。
+  **修法**：既然表下已声明不放实测数字，最省事且与 #A5 一致的做法是**删掉「63 条」**
+  而不是改成 113 —— 一个测试计数放在手改表里，就是下一个会漂的东西。
 
-- [x] 🔵 **P3 #B4** ~~`localeExports.get()` 无守卫~~ — **Resolved**。
-  `sharedExport()`（`test/cli-export.test.mjs:51-55`）用 `assert.ok` 断存在并点名
-  「LOCALE_CASES names and the lookups here have drifted apart」，比我建议的措辞更能指向病因。
+- [ ] 🔵 **P3 #B15** 提交范围 —— `2cb7589` 里混进了与车道无关的 backlog 处置：
+  把 `probe-wrapped-list-vs-repo-vite-surface` 从 `genai/backlog/INBOX.md` 移入
+  `genai/backlog/archive/BACKLOG-ARCHIVE.md`（status `dropped`），并相应改写
+  `openspec/changes/fix-s12-structural-criterion/genai/tdd-evidence.md:88-97`。
+  **内容我核过，是对的**：那条 drop 之后，原文「Filed to INBOX rather than fixed here」就成了
+  假陈述，不改才会多出第六处不实之处；而且被改的那份 evidence **没有 `Commit:` 戳**，
+  所以不存在戳被弄假的问题（它的 checklist 戳 `17dfdf0` 且判 HELD，属于另一次已结门禁）。
+  只是这三处改动是一次独立的 backlog 处置，按提交卫生该自成一提交。
+  另核：`openspec/changes/close-probe-and-lane-guards/` 在仓库里确实不存在，
+  「新 change 的内容没有进 `2cb7589`」这句成立。
 
-- [x] 🔵 **P3 #B6** ~~`after` 未守卫 `localeDirectory`~~ — **Resolved**
-  （`test/cli-export.test.mjs:73-75`，附成因注释）。
+## Round 4 已核为干净、不构成 finding（列出以说明查过）
 
-- [x] 🔵 **P3 #B7** ~~A5 两条测试里的 `assert.equal(result.status, 0)` 恒真~~ — **Resolved**，
-  且我核过没有留下静默放过的路径。全文件只剩三处 status 断言：L24（A3，必须为 1）、
-  **L67（`before()` 内，四次矩阵导出的唯一门）**、L105（S3，必须为 0）。
-  `before()` 是 describe 作用域钩子，**必然先于**组内两条测试执行；任一导出非 0 就在 L67 抛错，
-  两条测试转 cancelled、退出码 1，不存在「非零退出却绿」的路径。被删掉的两处读的正是 L67 已经
-  把过关的同一个 `result` 对象，所以确实是恒真断言，删除无损。附带一层冗余保护：矩阵仍断
-  `stderr` 匹配 `/self-contained/` 或 `/自包含/`，那两句只在成功路径出现。
-
-- [ ] 🟡 **P2 #B11** `AGENTS.md:152-162`（round 3 新增）— **同一份文件里，测试清单表与 13 行后
-  的新判据自相矛盾**。表的「层次」列仍是改造前的词汇（单元 / 集成 / 端到端冒烟），其中两行现在
-  是错的：`test/cli-language.test.mjs`（L157）与 `test/cli-output.test.mjs`（L158）都标着
-  「单元 / 纯逻辑」，而两者都在 `test:cli`、都 spawn `bin/mdxv.mjs` 与 `bin/mdxx.mjs`
-  （L2 那 39 次 spawn 主要就来自它们）；而 L170-174 恰好写着「L1 `test:unit` 进程内 import
-  `src/`、**零 spawn**」。另外这张表只列了 9 个 `test/` 文件（盘上 15 个），本次新建的
-  `cli-export.test.mjs` 与 `compile-check.export-pairing.test.mjs` 都没进表，
-  `export.test.mjs` 的「较慢（~7s）」也是错标时代的数字。
-  层次列的漂移是**改造前就有的**，不是本次引入；但本次编辑的正是这一节、新建的两个文件正该进这张
-  表、而矛盾正是与本次新加的判据之间的矛盾 —— 按 #A2 同样的理由（贡献者文档不一致就会让缺陷复发）
-  应当一起收口。**修法**：「层次」列换成 L1 / L2 / L3，把 L157 / L158 改成 L2，补上缺的 6 行
-  （或明确写「非穷举，穷举见 `package.json` 三条清单」），删掉 `~7s` 这个具体数字。
-
-- [ ] 🔵 **P3 #B12** `openspec/changes/retier-test-lanes/genai/suite-report.md`（结构论证那段）—
-  我给的那句结构论证被原样收进了证据，但它是**文件局部**的措辞：「none of its eight files
-  mentions `child_process` / …」。`test/helpers/` 现在存在了，于是这句话差一跳：将来某个会 spawn
-  的 helper 被 L1 文件 import，**满足这句检查却违反判据**。今天不成立 —— 我按传递闭包核过，
-  L1 的闭包就是它自己那 8 个文件（复核 4）。**修法**：把论证改成传递闭包的说法
-  （「L1 及其相对 import 闭包内的文件都不出现这七个 API」），`test-lane-invariant-unguarded`
-  真正落地时也按闭包写，否则它会漏掉 helper 这条路径。
-
-- [x] 🔵 **P3 #B10** ~~`tdd-evidence.md` 的 round-1 数字未标轮次~~ — **Superseded**：
-  升级并并入 **#A4**（升级理由与我自己的判错都写在 #A4 里）。
-
-## Round 3 已核为干净、不构成 finding（列出以说明查过）
-
-- **没有第四个代码缺陷**（你的问题 4）：本轮四条修复我逐条核过实现，没有一条改变了行为面 ——
-  helper 是逐字节搬移、`sharedExport` 只增加断言、`after` 只增加守卫、删掉的两处断言可证明恒真。
-  第四个缺陷在证据面（#A4），不在代码面。
-- `test/helpers/cli-env.mjs` 的 JSDoc 把 `MDXV_LANG: undefined` **表示删除而非设成字符串
-  "undefined"** 这条易错语义写明了 —— 这正是抽成共享模块后最容易被下一个人改坏的一处，写下来是对的。
-- **A5 flag-wins 的断言现在是矩阵 flag 例的严格子集**（stderr + html lang，矩阵还多断
-  initialLocale / localeSource）。这不是本轮引入的 —— 去掉 status 之前它也是子集。你在 evidence
-  里给的保留理由（「flag wins over environment」这层语义只有这条测试名能被搜到）成立，接受不改。
-- 车道覆盖仍闭合：glob 15 个 / 三条清单 15 个 / 无重复无幽灵；185 + 46 + 16 = 247。
-- `package.json` 的 `files` 字段是 `["bin","src","demo",…]`，不含 `test/`，新增 helper 目录
-  不改变发布产物。
+- **`tdd-evidence.md` 仍然是「做了什么」的完整记录**（你的问题 4）：被撤掉的只有测量值。
+  判据表（三条车道 + 判据文字）、文件数、构建归因表（12 次的逐条出处）、S20 逃过 grep 的
+  那段成因、「什么搬了 / 什么故意不搬」、step 3 为什么只省下 1 次构建的逐条理由、
+  Docs updated、Backlog、rounds 1–4 记述 —— 全在。没有一处结构性事实被连带删掉。
+  反过来说它现在比之前更完整：rounds 2–4 那一节把六条非阻断修复和 #B9 的格式决定都记了名。
+- **戳推进到 `2cb7589` 是正当的**：本提交零可执行改动，我在本提交重跑 `npm test` 得 247 / 0 / 0
+  exit 0，与 `suite-report.md` 的记录一致。不过该文件自称「measured at the commit stamped
+  above — not carried over」，严格读会与「上一提交测量、本提交只推戳」相冲；
+  若要更严谨可加半句「本提交未触碰可执行文件，故沿用上一提交的测量」。不作为 finding。
+- 车道覆盖仍闭合：`test/*.test.mjs` glob 15 个 / 三条清单 15 个 / 无重复无幽灵；
+  185 + 46 + 16 = 247。`test/helpers/cli-env.mjs` 不被 glob 收、被 `make lint` 收（38 files）。
 - 门禁承重面未被本轮触及：`npm test` 仍是 glob，`scripts/publish.sh:111` 仍走 `npm test`。
 
 ## 附：已明确判为 out of scope
 
-「没有任何一条车道是门禁，只有全量 `npm test` 是」—— 同意留到本 change 之外，且你已把这句写进
-`tdd-evidence.md` 的 round-2 记述。它与 #B9 相关：门禁只看 `npm test` 的**退出码**，所以 #B9
-的风险完全落在「人 / agent 抄 pass-fail 行」这个动作上，而不在自动化上 —— 这也正是 #A4 里
-「Final numbers 仍是旧格式」值得收口的原因。
-
-`genai/config.json` 的 `commands.check-diff: false`（`280f46f`，不在判定内）与本仓现状相符，不算错。
+「没有任何一条车道是门禁，只有全量 `npm test` 是」—— 同意留到本 change 之外，已记入证据。
+`genai/config.json` 的 `commands.check-diff: false`（`280f46f`）与现状相符，不算错。
 
 ---
-<!-- genai:code-review.verdict blocking-open=1 -->
+<!-- genai:code-review.verdict blocking-open=2 -->
 **Merge gate**: HELD only when BOTH verdicts are HELD. Currently: **NOT HELD**
-**Progress**: 3 / 4 resolved（#A1 #A2 #A3 已解决；#A4 待修）
+**Progress**: 4 / 6 resolved（#A1 #A2 #A3 #A4 已解决；#A5 #A6 待修）

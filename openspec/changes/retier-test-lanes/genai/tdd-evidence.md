@@ -1,6 +1,6 @@
 # tdd-evidence — retier-test-lanes
 
-Commit: 0afc3edb827bf83cbda67e085ad3268bbacc9e7e
+Commit: 2cb7589414649342d2cf30a4f7802f9acb74b06a
 
 Re-partition the test lanes by **dependency surface** instead of by (mislabelled) elapsed time.
 Lane `min`: no spec node; input is the task description. No product code changed — this touches
@@ -102,10 +102,17 @@ Total suite time barely moves, because the builds are inherent to what is being 
 
 ## Commands run
 
-**Numbers live in exactly one file**: `suite-report.md`, stamped with the commit they were measured
-at. This file used to carry its own copy of the table, which is how review found it two rounds stale
-while its stamp said otherwise (#A3, then #A4 for repeating the mistake here). A second copy of a
-measurement is a second thing to forget to update, so there is no longer one.
+**Timings and pass / fail / cancelled counts live in exactly one file**: `suite-report.md`, stamped
+with the commit they were measured at. This file used to carry its own copy of the table, which is
+how review found it two rounds stale while its stamp said otherwise (#A3, then #A4 for repeating the
+mistake here). A second copy of a re-measured value is a second thing to forget to update.
+
+The rule is deliberately narrow, because the first version of it was not. It said "numbers live in
+exactly one file" while this same file still cited five figures in prose and `AGENTS.md` cited
+several structural counts in its table — all of them correct, but the stated invariant was false,
+which by the standard applied to #A1 is itself a P1 (review #A5). Structural facts that are read off
+the source — how many builds a file runs, how many files a lane lists — are fine to state wherever
+they help; what must not be copied is anything that changes when you re-run the suite.
 
 Test count is **247 before and after** — every test moved, none dropped. Lane membership checked
 programmatically: 15 files on disk, 15 covered, no file in two lanes, none missing.

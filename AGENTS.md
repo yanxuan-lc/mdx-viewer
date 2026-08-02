@@ -157,7 +157,7 @@ devDependency）。两者互不重叠：`npm test` 不跑 e2e，e2e 也不替代
 | `test/nav-tree.test.mjs` | L1 | `src/app/nav-tree.mjs`：嵌套目录树折叠、目录优先排序、祖先枚举 | 纯逻辑 |
 | `test/local-document-links.test.mjs` | L1 | `src/app/local-document-links.mjs`：POSIX/Windows 路径归一与相对链接解析 | 纯逻辑 |
 | `test/mdx-pipeline.test.mjs` | L1 | `src/mdx/plugins.mjs` 编译管线：frontmatter / GFM / 数学 / 高亮 / 图三车道 | 直接调官方 `compile()` 跑 `mdxOptions()` |
-| `test/diagram-theme.test.mjs` | L1 | `src/mdx/diagrams.mjs`：颜色语义化、遮罩/裁剪守卫、缺省色继承 | 63 条，全进程内 |
+| `test/diagram-theme.test.mjs` | L1 | `src/mdx/diagrams.mjs`：颜色语义化、遮罩/裁剪守卫、缺省色继承 | 全进程内；含多组拼写矩阵，条数由循环生成 |
 | `test/compile-check.test.mjs` | L1 | `src/cli/compile-check.mjs` + `output.mjs` 的 check-* 呈现 | 直接函数调用，**零子进程** |
 | `test/cli-output.test.mjs` | **L2** | `src/cli/output.mjs` 的 CLI 侧：help / 错误 / 状态面板、着色随流 | **spawn 两个 binary**，不跑构建 |
 | `test/cli-language.test.mjs` | **L2** | `--lang` / `MDXV_LANG` / 系统 Locale 的端到端优先级与报错 | **spawn 两个 binary**；含 4 次真实 dev server |
@@ -171,7 +171,9 @@ devDependency）。两者互不重叠：`npm test` 不跑 e2e，e2e 也不替代
 | `e2e/localized-document-variants.spec.mjs` | e2e | 文档族选择、导航去重、`?doc=` 归一、相对链接族内路由 | 用 `e2e/fixtures/localized/` |
 | `e2e/empty-states.spec.mjs` | e2e | 空目录 / 渲染错误 / 非法 mode 等边界态 | 用 `e2e/empty-state-server.mjs` 起临时 Vite |
 
-> 表里不写各车道耗时——那正是上一次错标的成因。当前实测数字只有一处来源：
+> 表里不写耗时、也不写测试条数——两者都会随每次运行变，手工维护的那张表正是上一次错标的成因
+> （`diagram-theme` 曾写「63 条」，实际 113：63 是源码里 `test(` 的行数，其余由循环生成）。
+> **耗时与 pass/fail 计数**只有一处来源：
 > `openspec/changes/retier-test-lanes/genai/suite-report.md`（带 commit 戳）。
 
 - `test/fixtures/export-sample.mdx` 是导出测试的最小样例（committed）。

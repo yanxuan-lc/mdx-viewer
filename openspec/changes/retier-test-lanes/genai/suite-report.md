@@ -1,6 +1,6 @@
 # suite-report — retier-test-lanes
 
-Commit: 0afc3edb827bf83cbda67e085ad3268bbacc9e7e
+Commit: 2cb7589414649342d2cf30a4f7802f9acb74b06a
 
 The minimal lane's verification carrier: the project's own suite, run whole. Numbers below are
 measured at the commit stamped above — **not carried over from an earlier round**. Round 1 of this
@@ -49,12 +49,32 @@ a file-local check would pass while an imported helper spawned.
 
 Closure here means: start from a lane's listed files, follow every relative `from "./…"` import
 transitively. Measured that way — including the `src/` modules the tests import — L1's closure is
-**19 files with 0 spawn-API mentions**; L2's is 12 with 4; L3's is 4 with 3. (An earlier draft of
-this file quoted 8 / 5 / 4, which came from counting only files under `test/`. Those were the
-reviewer's figures and I had reproduced them without re-deriving them — the same mistake this
-report exists to catch, so the numbers above are my own walk.)
+**19 files with 0 spawn-API mentions**; L2's is **15** with 4; L3's is 4 with 3.
 
-Nothing asserts this invariant in the suite itself; tracked as `test-lane-invariant-unguarded` (P2).
+Two earlier drafts of this line were wrong, in opposite ways, and both are worth recording because
+the sentence they sat in claimed to be a first-hand derivation:
+
+- `8 / 5 / 4` — the reviewer's figures, counting only files under `test/`. I reproduced them without
+  re-deriving them.
+- `19 / 12 / 4` — my own walk, but the L2 figure was wrong: `12` matches no defensible definition
+  (transitive incl. `src/` is 15; `test/`-only is 5; lane files plus one hop is 8). The walk that
+  produced it silently missed three edges.
+
+The figures above come from a walk that prints its full file list, so the count can be checked
+against the members rather than trusted: L2's 15 = 4 lane files + `test/helpers/cli-env.mjs` +
+10 modules under `src/`.
+
+**One gap in the measurement above, disclosed rather than papered over** (review #B13):
+`test/compile-check.no-build.test.mjs:34` sets `MDXV_PROBE_OUT` to its own temp file for every
+subprocess it spawns, and deletes it afterwards. A lane-level probe injection is therefore
+*overwritten* for that one file, so the lane-level counts have **no coverage of its subprocesses**.
+Consequences: L2's true `createServer` count is **5**, not 4 (4 from `cli-language`'s mdxv matrix,
+plus 1 from that file's own probe-liveness control), and L2's load-bearing `build = 0` is
+**unmeasured for that file** — it holds today, but on the strength of that file's own S12 assertion
+rather than of this table.
+
+Nothing asserts this invariant in the suite itself; tracked as `test-lane-invariant-unguarded` (P2),
+whose criterion has to account for this shadowing to be worth implementing.
 
 ## Membership check
 

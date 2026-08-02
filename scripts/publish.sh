@@ -10,10 +10,11 @@
 #   scripts/publish.sh
 #
 # 开关（环境变量，传 1 生效）：
-#   DRY_RUN=1      走 `npm publish --dry-run`，不真正发布、不打 tag
-#   SKIP_TESTS=1   跳过发布前的 `npm test`（不建议，仅救急）
-#   ALLOW_DIRTY=1  允许工作树有未提交改动时发布
-#   SKIP_TAG=1     发布成功后不创建 / 推送 git tag
+#   DRY_RUN=1        走 `npm publish --dry-run`，不真正发布、不打 tag
+#   SKIP_TESTS=1     跳过发布前的 `npm test`（不建议，仅救急）
+#   ALLOW_DIRTY=1    允许工作树有未提交改动时发布
+#   ALLOW_NON_MAIN=1 允许从非 main 分支发布（`make publish-dry` 已自带）
+#   SKIP_TAG=1       发布成功后不创建 / 推送 git tag
 #
 # token 来源优先级：已存在的环境变量 NPM_ACCESS_TOKEN > 仓库根 .env 里的同名项。
 

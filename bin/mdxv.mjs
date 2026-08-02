@@ -39,7 +39,15 @@ const color = isColorEnabled({ isTTY: process.stderr.isTTY, env: process.env });
 // （src/cli/language.mjs 的 parseLanguageArgument/resolveCliLanguage）不同：locale 字符串
 // 本身带语义、值可能是错的，所以 --lang 有专门的校验并在错时报错；`--check` 是纯开关，
 // spec/help 从未广告过带值形式，没有语义可校验，只需原样复刻 cac 的强制转换。
-const checkMode = process.argv.slice(2).some(
+// 同理，裸 `--` 之后的 token 对 cac 不再是选项（`mdxv --lang xx-XX -- --check` 时
+// cac 给出 opts.check === undefined），所以探测也必须在第一个裸 `--` 处截断——否则
+// 这条 argv 上两处判定又会分家：探测说「是 check 模式」退 2，契约说「不是」应退 1。
+const checkProbeArgv = (() => {
+  const argv = process.argv.slice(2);
+  const terminator = argv.indexOf("--");
+  return terminator === -1 ? argv : argv.slice(0, terminator);
+})();
+const checkMode = checkProbeArgv.some(
   (arg) => arg === "--check" || (arg.startsWith("--check=") && arg.slice("--check=".length) !== "false"),
 );
 // 着色按「实际写入的那条流」分别判定（F2）——报告走 stdout、诊断走 stderr，
@@ -168,8 +176,11 @@ async function main() {
  */
 async function runCheck(input, language) {
   let documents;
+  let root;
   try {
-    documents = input === "demo" ? scanTree(DEMO_DIR) : resolveCheckDocuments(input);
+    ({ root, documents } = input === "demo"
+      ? { root: DEMO_DIR, documents: scanTree(DEMO_DIR) }
+      : resolveCheckDocuments(input));
   } catch (error) {
     const diagnostic = formatError({ locale: language.locale, message: formatCliError(error, language.locale), color: checkColors.diagnostic });
     const help = error.code === "INPUT_REQUIRED"
@@ -180,7 +191,9 @@ async function runCheck(input, language) {
     return;
   }
   if (!documents.length) {
-    console.error(formatError({ locale: language.locale, message: t(language.locale, "cli.directoryEmpty", { root: input }), color: checkColors.diagnostic }));
+    // 传解析后的根目录，与预览路径同一条消息（上面的 inp.root）口径一致——
+    // 同一句文案不该一边打用户原始入参、一边打绝对路径。
+    console.error(formatError({ locale: language.locale, message: t(language.locale, "cli.directoryEmpty", { root }), color: checkColors.diagnostic }));
     process.exitCode = 2;
     return;
   }
@@ -199,9 +212,9 @@ async function runCheck(input, language) {
 /**
  * `--check` 专用的输入解析：不使用 `pickDefaultDoc`（校验没有「默认文档」概念）。
  * @param {string | undefined} input 文件或目录参数
- * @returns {{abs: string}[]} 待校验的文档集
+ * @returns {{root: string, documents: {abs: string}[]}} 解析后的根目录与待校验文档集
  */
 function resolveCheckDocuments(input) {
   const inp = resolveInput(input);
-  return inp.target ? [{ abs: inp.target }] : scanTree(inp.root);
+  return { root: inp.root, documents: inp.target ? [{ abs: inp.target }] : scanTree(inp.root) };
 }

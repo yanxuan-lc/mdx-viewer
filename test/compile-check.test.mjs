@@ -10,7 +10,7 @@
    ============================================================ */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { chmodSync } from "node:fs";
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -119,9 +119,21 @@ test("S8: a dot-fence syntax error has no position and degrades to a plain reaso
 });
 
 test("S9: an unreadable document inside a batch is caught as a failed result carrying the OS reason, and the rest are still checked", async (t) => {
-  const file = doc("unreadable.mdx");
+  // mode 000 is not a permission barrier for uid 0, so this scenario cannot be
+  // observed as root (the container-CI default) — say so instead of failing.
+  if (process.getuid?.() === 0) return t.skip("running as root: mode 000 is still readable");
+
+  // The unreadable file is built in a temp dir rather than chmod'ed in place, mirroring
+  // the sibling assertion in compile-check.cli.test.mjs. Doing it to a version-controlled
+  // fixture meant a killed test run left the file unreadable in the working tree.
+  const dir = mkdtempSync(join(tmpdir(), "mdxv-check-s9-"));
+  const file = join(dir, "unreadable.mdx");
+  writeFileSync(file, "# unreadable\n");
   chmodSync(file, 0o000);
-  t.after(() => chmodSync(file, 0o644));
+  t.after(() => {
+    chmodSync(file, 0o644);
+    rmSync(dir, { recursive: true, force: true });
+  });
 
   const { results, passed, failed } = await checkDocuments([{ abs: doc("pass.mdx") }, { abs: file }]);
   assert.equal(passed, 1);
@@ -255,6 +267,12 @@ test("#A1: bare `--check` still exits 2 on the same argument-level failure (cont
 test("#A1: `--check=false` is cac's one literal falsy spelling, so it must NOT be swept into check-mode's exit-2 accounting", () => {
   const result = runMdxv(["--check=false", doc("pass.mdx"), "--lang", "xx-XX"]);
   assert.equal(result.status, 1, "an argument-level failure while --check is off exits 1, same as with no --check flag at all");
+  assert.match(result.stderr, /^Error: /);
+});
+
+test("#B5: after a bare `--`, `--check` is no longer an option to cac, so the probe must not claim check-mode either", () => {
+  const result = runMdxv(["--lang", "xx-XX", "--", "--check"]);
+  assert.equal(result.status, 1, `cac gives opts.check === undefined here, so the contract is exit 1; previously the probe saw the token and exited 2: stderr=${result.stderr}`);
   assert.match(result.stderr, /^Error: /);
 });
 

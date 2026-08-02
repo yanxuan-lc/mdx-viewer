@@ -163,7 +163,7 @@ devDependency）。两者互不重叠：`npm test` 不跑 e2e，e2e 也不替代
 | `test/cli-language.test.mjs` | **L2** | `--lang` / `MDXV_LANG` / 系统 Locale 的端到端优先级与报错 | **spawn 两个 binary**；含 4 次真实 dev server |
 | `test/compile-check.cli.test.mjs` | **L2** | `mdxv --check` 的黑盒 CLI 契约 S1–S11 / S13 / S15 / S16 / S18 / S19 + `#A1`/`#B5` argv 探测 | 只 spawn `mdxv`，不跑构建 |
 | `test/compile-check.no-build.test.mjs` | **L2** | S12：`--check` 不进构建路径 | 用 `test/fixtures/vite-call-probe` 钉住 |
-| `test/export.test.mjs` | **L3** | `bin/mdxx.mjs` 导出：零外链、base64 内联、版本注入 | 真实 `vite build`，一次构建摊给 10 条断言 |
+| `test/export.test.mjs` | **L3** | `bin/mdxx.mjs` 导出：零外链、base64 内联、版本注入 | 真实 `vite build`，`before()` 里构建一次、摊给全部断言 |
 | `test/cli-export.test.mjs` | **L3** | 需要真实构建的 CLI 断言：A3 构建失败本地化、A5 locale provenance、S3 状态面板 | 6 次构建，矩阵四次由 `describe` 共用 |
 | `test/compile-check.export-pairing.test.mjs` | **L3** | S14 / S20：`--check` 与 `mdxx` 的配对差值断言 | 4 次构建；差值语义，不可拆车道 |
 | `test/helpers/cli-env.mjs` | — | 不是测试文件（故意不叫 `*.test.mjs`，否则会被 gate 的 glob 收进去） | L2 与 L3 共用的 env 构造 |

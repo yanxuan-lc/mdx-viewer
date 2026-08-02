@@ -1,6 +1,6 @@
 # suite-report — retier-test-lanes
 
-Commit: 2cb7589414649342d2cf30a4f7802f9acb74b06a
+Commit: f1a91666c9ae81e4767f6dd42dd1e7fc57710326
 
 The minimal lane's verification carrier: the project's own suite, run whole. Numbers below are
 measured at the commit stamped above — **not carried over from an earlier round**. Round 1 of this
@@ -66,12 +66,23 @@ against the members rather than trusted: L2's 15 = 4 lane files + `test/helpers/
 
 **One gap in the measurement above, disclosed rather than papered over** (review #B13):
 `test/compile-check.no-build.test.mjs:34` sets `MDXV_PROBE_OUT` to its own temp file for every
-subprocess it spawns, and deletes it afterwards. A lane-level probe injection is therefore
-*overwritten* for that one file, so the lane-level counts have **no coverage of its subprocesses**.
-Consequences: L2's true `createServer` count is **5**, not 4 (4 from `cli-language`'s mdxv matrix,
-plus 1 from that file's own probe-liveness control), and L2's load-bearing `build = 0` is
-**unmeasured for that file** — it holds today, but on the strength of that file's own S12 assertion
-rather than of this table.
+subprocess it spawns, and deletes it afterwards.
+
+Precisely what is and is not shadowed (review #B16 — the first wording here said "the injection is
+overwritten", which overstated it): `probeEnv()` **preserves and appends** `NODE_OPTIONS`, so the
+lane-level loader still loads and the hooks still run. Only the single variable `MDXV_PROBE_OUT` is
+redirected. That matters for how cheap the fix is — **a distinct output variable name closes it**;
+no change to the probe architecture is needed.
+
+Consequences while it stands: L2's true `createServer` count is **5**, not 4 (4 from
+`cli-language`'s mdxv matrix, plus 1 from that file's own probe-liveness control), and L2's
+load-bearing `build = 0` is **not established by this table** for that one file.
+
+It is, however, established more strongly than an earlier draft of this paragraph claimed: that file
+asserts the *complete* call list with `deepEqual` at all three of its subprocess sites — `--check`
+asserts `[]`, the liveness control asserts **exactly** `["createServer"]` (which therefore excludes
+`build`), and probe-coverage asserts `[]`. So no build can hide there. The earlier wording said it
+rested on "that file's own S12 assertion", which read as weaker than it is.
 
 Nothing asserts this invariant in the suite itself; tracked as `test-lane-invariant-unguarded` (P2),
 whose criterion has to account for this shadowing to be worth implementing.

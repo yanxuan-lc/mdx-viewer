@@ -1,6 +1,6 @@
 # tdd-evidence — retier-test-lanes
 
-Commit: 2cb7589414649342d2cf30a4f7802f9acb74b06a
+Commit: f1a91666c9ae81e4767f6dd42dd1e7fc57710326
 
 Re-partition the test lanes by **dependency surface** instead of by (mislabelled) elapsed time.
 Lane `min`: no spec node; input is the task description. No product code changed — this touches
@@ -92,12 +92,13 @@ attribution above is why: 11 of the 12 builds are semantically distinct and cann
 
 The one real sharing opportunity: `A5: mdxx flag wins` and the matrix's `flag` case are the
 *same command* (same fixture, `--lang en-US`, `MDXV_LANG=zh-CN`). Hoisted the four matrix exports
-into a `before()` and had both tests assert against the stored results — **1 build saved (~4 s)**,
+into a `before()` and had both tests assert against the stored results — **1 build saved**,
 both test names kept. Deleting the flag-wins test would have saved the same build but lost the
 only place the phrase "flag wins over environment" is discoverable.
 
-The real payoff of this change is step 2, not step 3: the inner loop went **27.5 s → 0.5 s**
-(1.3 s as first landed; the remaining 0.8 s was the four stray subprocesses review found as #A1).
+The real payoff of this change is step 2, not step 3: the inner loop went from **27.5 s** (the
+pre-change baseline) to sub-second — current figure in `suite-report.md`. It first landed at 1.3 s;
+the rest came off when review found four stray subprocesses in L1 as #A1.
 Total suite time barely moves, because the builds are inherent to what is being asserted.
 
 ## Commands run
@@ -107,12 +108,21 @@ with the commit they were measured at. This file used to carry its own copy of t
 how review found it two rounds stale while its stamp said otherwise (#A3, then #A4 for repeating the
 mistake here). A second copy of a re-measured value is a second thing to forget to update.
 
-The rule is deliberately narrow, because the first version of it was not. It said "numbers live in
-exactly one file" while this same file still cited five figures in prose and `AGENTS.md` cited
-several structural counts in its table — all of them correct, but the stated invariant was false,
-which by the standard applied to #A1 is itself a P1 (review #A5). Structural facts that are read off
-the source — how many builds a file runs, how many files a lane lists — are fine to state wherever
-they help; what must not be copied is anything that changes when you re-run the suite.
+The rule has three clauses, and it took two rounds to get them right (#A5, twice):
+
+1. **Current measured values** — wall times, and pass / fail / cancelled counts — live only in
+   `suite-report.md`. They change on every run, so a second copy is a second thing to forget.
+2. **Structural facts read off the source** — how many builds a file runs, how many files a lane
+   lists — may be stated wherever they help. They change only when the source does.
+3. **Historical measurements of superseded states, and quotations of past defects, are exempt.**
+   The 27.5 s / 5.8 s pre-change baseline, and "it first landed at 1.3 s", are narrative about what
+   *was* true; they are not claims about this commit and cannot go stale.
+
+Clause 3 is the one that makes the rule satisfiable. Round 4's version had only clauses 1 and 2, so
+the historical figures this file *should* keep were permanent violations of it — meaning every round
+could only re-word the rule instead of converging. That, not carelessness, is why #A5 recurred: the
+first fix narrowed the wording and left the live values alone, and the wording could never be made
+true anyway.
 
 Test count is **247 before and after** — every test moved, none dropped. Lane membership checked
 programmatically: 15 files on disk, 15 covered, no file in two lanes, none missing.
@@ -151,7 +161,8 @@ grep, noted two paragraphs up in this very file and still not generalised.
 
 Fixed by moving the four argv-probe tests to `test/compile-check.cli.test.mjs` (L2, where they
 belong by the criterion — they test argv assembly at the process boundary and cannot be a direct
-call). L1 is now genuinely zero-spawn: 185 tests, **0.5 s**. Verified with a second loader probe
+call). L1 is now genuinely zero-spawn — count and wall time in `suite-report.md`. Verified with a
+second loader probe
 that wraps `child_process`, written for this purpose.
 
 Two self-inflicted errors during that fix, both caught by running rather than reading:
@@ -174,7 +185,7 @@ Also fixed from the same review:
 
 - `#B1` (P2) — the four shared matrix exports are now inside a `describe()`. A root-level
   `before()` runs even under `--test-name-pattern`, so "run just A3" was paying four real builds
-  (~16 s). Verified: it is now 1 build.
+  (four real builds where one was needed). Verified: it is now 1 build.
 - `#B2` (P2) — orphaned `readFileSync` import left in `cli-output.test.mjs` when `S3` moved out.
 - `#B5` (P3) — `compile-check.cli.test.mjs`'s header still claimed "S1–S16 / S18 / S19" and
   "pairs with `bin/mdxx.mjs`", contradicting the L2 line directly below it.
@@ -183,7 +194,7 @@ Also fixed from the same review:
   measured baseline and the "inject the probes separately" caveat.
 
 Not changed: the reviewer's observation that no lane is a gate — the only gated command is the
-full `npm test` (24.8 s), so the 0.5 s inner loop buys nothing at the gate. True, and out of
+full `npm test`, so the sub-second inner loop buys nothing at the gate. True, and out of
 scope for this change.
 
 ## Final numbers

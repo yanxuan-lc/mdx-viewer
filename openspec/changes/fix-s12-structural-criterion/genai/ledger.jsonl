@@ -4,3 +4,4 @@
 {"event":"claim","node":"existing-suite","at":"2026-08-02T11:57:38.497Z"}
 {"event":"transition","node":"existing-suite","to":"active","at":"2026-08-02T11:57:38.498Z"}
 {"event":"fail","node":"existing-suite","unmet":[{"kind":"commit-match","detail":"the worktree has uncommitted changes (M .gitignore, AGENTS.md, CHANGELOG.md +18 more), so a stamp against HEAD does not describe the code under review — commit first, then re-stamp the evidence"}],"skipped":[],"at":"2026-08-02T11:59:02.448Z"}
+{"event":"fail","node":"code-review","unmet":[{"kind":"commit-match","detail":"checklist.md records af1c8710e4b70a3499eaac738a8a49fa11bd96f7, current HEAD is 17dfdf0edcdb — the evidence is stale and must be regenerated"}],"skipped":[],"at":"2026-08-02T12:32:59.795Z"}

@@ -1,6 +1,6 @@
 # suite-report — fix-s12-structural-criterion
 
-Commit: af1c8710e4b70a3499eaac738a8a49fa11bd96f7
+Commit: 17dfdf0edcdbc2902d8f50c04e99468c16c0e7cc
 
 The minimal lane's verification carrier: the project's own suite, run whole against the
 working tree at the commit above.

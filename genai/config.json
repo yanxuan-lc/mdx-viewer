@@ -5,6 +5,7 @@
   "commands": {
     "test": "make test",
     "lint": "make lint",
-    "build": false
+    "build": false,
+    "check-diff": false
   }
 }

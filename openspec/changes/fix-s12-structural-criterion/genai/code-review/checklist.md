@@ -2,23 +2,33 @@
 
 - **Mode**: Incremental（合并前门禁）
 - **Branch**: dev
-- **Commit**: af1c8710e4b70a3499eaac738a8a49fa11bd96f7
+- **Commit**: 17dfdf0edcdbc2902d8f50c04e99468c16c0e7cc
 - **Reviewer model family**: Claude (Opus 5)
-- **Round**: 2（round 1 审 `530cfcc`；本轮审 delta `git diff 530cfcc af1c871`，状态就地更新）
+- **Round**: 3（round 1 审 `530cfcc`；round 2 审 `af1c871` 并给出 HELD；round 3 为
+  `af1c871 → 17dfdf0` 的纯换戳，判定不变，状态就地更新）
 
 ## 复核证据
 
-Round 2 全部重跑，未复用记录值：
+Round 3 的 delta 是**纯证据提交**，我自己核过而非采信 diff 描述：
+`git diff af1c871 17dfdf0 --name-status` 只有三个文件（`genai/backlog/INBOX.md`、本
+checklist、`suite-report.md`）；限定到 `test/ src/ bin/ package.json openspec/specs/ examples/
+scripts/ Makefile` 的 diff **零字节**。也就是说 round 2 审过的代码面在两个提交之间逐字节相同，
+两条判定原样保留。另核：round 2 的 checklist 被原样提交，判定、findings 与
+`blocking-open=0` 锚点均未被改动。
+
+即便如此仍在 `17dfdf0` 重跑了一遍，不靠「代码没变所以结论沿用」的推断：
 
 | 命令 | 我实测结果 |
 |---|---|
-| `npm test` | exit 0 · **247 pass / 0 fail / 0 skipped** |
+| `npm test` | exit 0 · **247 pass / 0 fail / 0 skipped / 0 todo** |
 | `make lint` | exit 0 |
 
-另跑了 10 组独立探针实验（不改仓库，脚本在 scratchpad），直接回答本轮两个问题，结果见
-#B1 与 #B9 两条。证据戳：`suite-report.md` 现为 `af1c871` 且显示为一处未提交修改 —— 这是
-「先提交、再补戳」的固有顺序（commit-match 类证据只可能在提交存在之后才落戳），不是陈旧证据，
-round 1 的 #A2 据此关闭。
+Round 2 另跑了 10 组独立探针实验（不改仓库，脚本在 scratchpad），直接回答继承面与
+`NODE_OPTIONS` 组合两个问题，结果见 #B1 与 #B9 两条。
+
+> **关于戳与提交的次序**：commit-match 类证据只可能在它描述的提交存在之后才落戳，所以
+> 「提交证据 → HEAD 前移 → 戳失效」是这类门禁的固有回归。终止条件只能是**最后一次写入是
+> 落戳、且该 checklist 保持未提交**——本文件就处在这个状态，这是正确的不动点，不是遗漏。
 
 ## Verdict A — Spec-compliance（code-vs-spec，不评判 spec 本身是否是该做的事）
 **Status: HELD**
@@ -81,6 +91,9 @@ round 1 的 #A2 据此关闭。
   （本仓是纯 ESM，且没有理由在派生时洗掉 env），所以**不阻断合并**；记着即可。
   另需明确一句边界：判据是「不进 vite」，不是「不做构建」—— 换成直接调 rollup/esbuild
   的构建不在 S12 射程内，这是场景定义本身的取舍，不是缺陷。
+  **Round 3 状态**：已归档为 INBOX `s12-probe-escape-env-scrub-and-cjs`（P3, unconfirmed），
+  带 `test/compile-check.no-build.test.mjs:29` 与六路逃逸矩阵、可复验判据（给 S12 各加一条
+  用这两种写法进构建的变异，当前应绿=逃逸、修复后应红）。已核入库条目内容属实，不再计数。
 - [ ] 🔵 **P3 #B8**（round 1 遗留，未修，未归档）`test/compile-check.no-build.test.mjs:53-61` —
   最后一丝空洞仍可零成本堵上：让钩子把「wrapper 模块已求值」写进另一个文件，S12 同时断言
   它非空、调用记录为空。我两轮都是用这个办法独立确认「`--check` 现场探针确实在位」的，

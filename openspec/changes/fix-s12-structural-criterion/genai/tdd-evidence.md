@@ -115,3 +115,10 @@ The broader test-lane re-partition discussed alongside this change (splitting in
 fast / cli / build lanes, and the fact that `test:unit`'s "快，无 vite 构建" label is false for
 `cli-language`, `cli-output` and `compile-check.cli`, which do run real builds) was **not**
 touched. This change only moves the one file whose criterion it rewrote.
+
+## Post-merge audit — 未做（用户决定跳过）
+
+跨家族审计（claude → codex）要求 `cross-family: allow`，项目配置为 `deny`（2026-08-02 用户
+所设）。用户在本次明确选择跳过跨模型审计，故本变更**只有合并前门禁，没有 post-merge audit**。
+同家族复审不能销此账（code-reviewer 定义：同家族审计等于 monoculture 自审）。
+要补做：`flow consent --cross-family=allow` 后用 codex 审 `530cfcc..17dfdf0`。

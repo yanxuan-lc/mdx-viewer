@@ -1,13 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { formatExportSuccess, formatHelp, formatPreviewSuccess, isColorEnabled } from "../src/cli/output.mjs";
-
-// 从 package.json 读取当前版本，避免版本 bump 后测试写死旧号
-const { version: PKG_VERSION } = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
 
 test("S1: preview help uses the standard sections without CAC commands", () => {
   const output = formatHelp({ command: "mdxv", locale: "en-US" });
@@ -153,30 +150,6 @@ test("S3: Chinese status labels align by terminal display width", () => {
   assert.match(output, /  默认文档 : \/docs\/README\.mdx/);
   assert.match(output, /  文档数 {3}: 2/);
   assert.match(output, /  访问链接 : → http/);
-});
-
-test("S3: export command writes a complete plain-text status panel to stderr", () => {
-  const directory = mkdtempSync(join(tmpdir(), "mdxv-cli-output-"));
-  const output = join(directory, "export.html");
-  try {
-    const result = spawnSync(process.execPath, ["bin/mdxx.mjs", "test/fixtures/export-sample.mdx", output], {
-      encoding: "utf8",
-      timeout: 180_000,
-    });
-
-    assert.equal(result.status, 0);
-    assert.match(result.stderr, /Export complete/);
-    assert.match(result.stderr, new RegExp(`Version\\s+: mdx-viewer v${PKG_VERSION.replace(/\./g, "\\.")}`));
-    assert.match(result.stderr, /Source file\s+: .*export-sample\.mdx/);
-    assert.match(result.stderr, /Output file\s+: .*export\.html/);
-    assert.match(result.stderr, /File size\s+: \d+ KB/);
-    assert.match(result.stderr, /Open the HTML file in your browser\./);
-    assert.doesNotMatch(result.stderr, /\u001B\[/);
-    const displayedSize = result.stderr.match(/File size\s+: (\d+) KB/)?.[1];
-    assert.equal(displayedSize, (statSync(output).size / 1024).toFixed(0));
-  } finally {
-    rmSync(directory, { recursive: true, force: true });
-  }
 });
 
 test("S4: color is enabled only for TTY output without NO_COLOR", () => {

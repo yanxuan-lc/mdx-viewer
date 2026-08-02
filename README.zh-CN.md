@@ -179,7 +179,8 @@ e2e/          Playwright spec + fixtures
 ```bash
 make test          # 全部 node 测试(单元 + 集成 + 导出冒烟,不含 e2e)
 make test-unit     # 快:纯逻辑 + MDX 编译管线(无 vite 构建)
-make test-export   # 导出自包含冒烟(真实 vite 构建,约 7s)
+make test-cli      # CLI 子进程契约,不跑 vite 构建
+make test-build    # 需要真实 vite 构建的(最慢)
 make test-e2e      # Playwright 端到端(首次需 npx playwright install)
 ```
 

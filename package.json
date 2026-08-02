@@ -45,8 +45,9 @@
     "dev": "node bin/mdxv.mjs",
     "build:html": "node bin/mdxx.mjs",
     "test": "node --test test/*.test.mjs",
-    "test:unit": "node --test test/resolve.test.mjs test/mdx-pipeline.test.mjs test/diagram-theme.test.mjs test/cli-language.test.mjs test/cli-output.test.mjs test/local-document-links.test.mjs test/nav-tree.test.mjs test/locale.test.mjs test/localized-docs.test.mjs test/compile-check.test.mjs test/compile-check.cli.test.mjs test/compile-check.no-build.test.mjs",
-    "test:export": "node --test test/export.test.mjs",
+    "test:unit": "node --test test/resolve.test.mjs test/locale.test.mjs test/localized-docs.test.mjs test/nav-tree.test.mjs test/local-document-links.test.mjs test/mdx-pipeline.test.mjs test/diagram-theme.test.mjs test/compile-check.test.mjs",
+    "test:cli": "node --test test/cli-output.test.mjs test/cli-language.test.mjs test/compile-check.cli.test.mjs test/compile-check.no-build.test.mjs",
+    "test:build": "node --test test/export.test.mjs test/cli-export.test.mjs test/compile-check.export-pairing.test.mjs",
     "test:e2e": "playwright test"
   },
   "dependencies": {

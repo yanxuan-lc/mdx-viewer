@@ -117,8 +117,9 @@ test / release / maintain 分组。Makefile 是薄封装，底层仍调 `npm` �
 | `make export FILE=<f> [OUT=…]` | `mdxx <f>` | 导出自包含 HTML |
 | `make lint` | — | 静态检查：全部 `.mjs` 语法解析 + `scripts/*.sh` 语法 + 随包 MDX 编译校验 |
 | `make test` | `npm test` | 全部 node 测试（单元 + 集成 + 导出冒烟；**不含 e2e**） |
-| `make test-unit` | `npm run test:unit` | 仅单元 + 集成（快，无 vite 构建） |
-| `make test-export` | `npm run test:export` | 仅导出自包含冒烟（含 vite 构建，较慢） |
+| `make test-unit` | `npm run test:unit` | L1：进程内单测，零子进程（亚秒级） |
+| `make test-cli` | `npm run test:cli` | L2：CLI 子进程契约，不跑 vite 构建 |
+| `make test-build` | `npm run test:build` | L3：需要真实 vite 构建的（最慢） |
 | `make test-e2e` | `npm run test:e2e` | Playwright 端到端（需先 `npx playwright install`） |
 | `make publish` | `./scripts/publish.sh` | 发布到 npmjs（版本核验 + 门控 + 读 `.env` token + 打 tag） |
 | `make publish-dry` | `DRY_RUN=1 ./scripts/publish.sh` | 发布演练，不真正发布也不打 tag |
@@ -166,9 +167,13 @@ devDependency）。两者互不重叠：`npm test` 不跑 e2e，e2e 也不替代
 - `test/fixtures/export-sample.mdx` 是导出测试的最小样例（committed）。
 - 版本号断言从 `package.json` 读，不写死——bump 版本不需要改测试。
 - **仍无 lint / typecheck 脚本**：应用侧 `.tsx` 走 Vite 宽松转译，无独立 tsc 门禁。
-- 加新纯逻辑模块时优先补 `test/*.test.mjs` 单测（**并把文件加进 `package.json` 的 `test:unit`
-  显式清单**，否则 `make test-unit` 不会跑到它）；改编译管线补集成断言；碰自包含约束补导出冒烟
-  断言；碰界面行为补 `e2e/` spec。
+- **测试车道按依赖表面分，不按耗时**（耗时是结果，依赖表面可 grep 且不会漂）：
+  L1 `test:unit` 进程内 import `src/`、零 spawn；L2 `test:cli` spawn `bin/` 断 stdout/exit code、
+  不跑构建（dev server 算 L2）；L3 `test:build` 跑真实 Vite 构建。**新增文件要加进对应车道的
+  显式清单**，否则那条 `make test-<lane>` 不会跑到它——但 `make test` 用 glob 收全部
+  `test/*.test.mjs`，门控不会漏。
+- 加新纯逻辑模块补 L1 单测；改编译管线补集成断言；碰自包含约束补导出断言（L3）；
+  碰界面行为补 `e2e/` spec。
 
 ## 架构要点
 

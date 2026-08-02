@@ -38,11 +38,14 @@ silently reported both. Only the call-counting probe attributed it correctly.
 
 ## The three lanes
 
-| lane | criterion (greppable, does not drift) | files | tests | wall |
-|---|---|---|---|---|
-| `test:unit` | in-process, imports `src/`, zero spawn | 8 | 185 | **0.5 s** |
-| `test:cli` | spawns `bin/`, asserts stdout/exit code, no build (dev server counts as L2) | 4 | 46 | 8.4 s |
-| `test:build` | runs a real Vite build | 3 | 16 | 22.1 s |
+| lane | criterion (greppable, does not drift) | files |
+|---|---|---|
+| `test:unit` | in-process, imports `src/`, zero spawn — checked on the transitive closure | 8 |
+| `test:cli` | spawns `bin/`, asserts stdout/exit code, no build (a dev server is still L2) | 4 |
+| `test:build` | runs a real Vite build | 3 |
+
+Test counts and timings are measurements, so they live only in `suite-report.md` — see #A4 below.
+Two copies drift; this table carried a stale one until the third review round caught it.
 
 Lane invariant measured on **both** dimensions (see the review round below — the first attempt
 measured only one of them):
@@ -93,18 +96,16 @@ into a `before()` and had both tests assert against the stored results — **1 b
 both test names kept. Deleting the flag-wins test would have saved the same build but lost the
 only place the phrase "flag wins over environment" is discoverable.
 
-The real payoff of this change is step 2, not step 3: the inner loop went **27.5 s → 1.3 s**.
+The real payoff of this change is step 2, not step 3: the inner loop went **27.5 s → 0.5 s**
+(1.3 s as first landed; the remaining 0.8 s was the four stray subprocesses review found as #A1).
 Total suite time barely moves, because the builds are inherent to what is being asserted.
 
 ## Commands run
 
-| command | result |
-|---|---|
-| `npm run test:unit` | 189 pass / 0 fail · 1.3 s |
-| `npm run test:cli` | 42 pass / 0 fail · 7.7 s |
-| `npm run test:build` | 16 pass / 0 fail · 22.6 s |
-| `npm test` | **247 pass / 0 fail / 0 skipped** · 24.4 s |
-| `make lint` | exit 0 |
+**Numbers live in exactly one file**: `suite-report.md`, stamped with the commit they were measured
+at. This file used to carry its own copy of the table, which is how review found it two rounds stale
+while its stamp said otherwise (#A3, then #A4 for repeating the mistake here). A second copy of a
+measurement is a second thing to forget to update, so there is no longer one.
 
 Test count is **247 before and after** — every test moved, none dropped. Lane membership checked
 programmatically: 15 files on disk, 15 covered, no file in two lanes, none missing.
@@ -180,12 +181,51 @@ scope for this change.
 
 ## Final numbers
 
-| command | result | wall |
-|---|---|---|
-| `npm run test:unit` | 185 pass / 0 fail | **0.5 s** |
-| `npm run test:cli` | 46 pass / 0 fail | 8.4 s |
-| `npm run test:build` | 16 pass / 0 fail | 22.1 s |
-| `npm test` | **247 pass / 0 fail / 0 skipped** | 24.8 s |
-| `make lint` | exit 0 | — |
+See `suite-report.md` at this commit — exit code plus all four counters, per #B9. Deliberately not
+duplicated here.
 
-185 + 46 + 16 = 247, unchanged from before this change.
+## Review rounds 2 and 3
+
+**Round 2** raised two P1s (#A1 the false L1 zero-spawn label, #A2 the unupdated CONTRIBUTING) —
+both recorded in the section above — plus four non-blocking findings in code this change had just
+added. All four were fixed inline rather than filed, because they were this change's own mess and
+the user had separately raised that the INBOX was accumulating speculative work:
+
+- `#B3` — `environment()` / `systemLocalePreload()` were byte-identical copies in `cli-language`
+  and `cli-export`; extracted to `test/helpers/cli-env.mjs`, deliberately not `*.test.mjs` so the
+  gate's glob does not collect it as a test.
+- `#B4` — shared-export lookups go through `sharedExport()`, which names the drift instead of
+  yielding `Cannot read properties of undefined`.
+- `#B6` — `after` guards `localeDirectory` before `rmSync`, so a failed `mkdtempSync` is not buried
+  under a `TypeError`.
+- `#B7` — dropped the `status === 0` assertions that `before()` had already made.
+
+**Round 3** raised **#A3** — `suite-report.md` had its stamp advanced while every number in it
+stayed at round 1. On this lane that file *is* the verification record, and the stamp is the claim
+that its numbers were measured at that commit; moving the stamp alone made it lie. Fixed by
+rewriting it from a fresh measurement, and by adopting **#B9**: results are recorded as exit code
+plus all four counters, because a `describe()`-scoped `before()` throw marks its tests `cancelled`
+rather than `fail` — so `pass 2 / fail 0` reads green at exit 1.
+
+**Round 4** raised **#A4**: the #A3 fix had been applied to one file rather than adopted as a
+practice. *This* file's stamp said `0afc3ed` while its own body was two rounds behind — claiming a
+1.3 s inner loop eleven lines above a sentence that said 0.5 s, and still using the pass/fail-only
+format that the very same commit had just argued was unsafe. The reviewer also said it had
+misjudged the lighter version of this as P3 in round 3 and was upgrading it, which is the right
+call: the signal was never "one more stale number", it was that a fix had not generalised.
+
+The structural remedy is above — **numbers now have exactly one home**. Two copies of a
+measurement is two things to forget.
+
+Round 4 also raised two non-blocking items, both fixed rather than filed:
+
+- `#B11` — `AGENTS.md`'s test table contradicted the lane criterion thirteen lines below it:
+  `cli-language` and `cli-output` were labelled 单元 / 纯逻辑 while both are L2 and both spawn two
+  binaries (they account for most of L2's 39 spawns). The table also listed 9 of 15 files and
+  carried a stale "~7s" from the mislabelled era. Rewritten to lane terms, all 15 files, and it now
+  states that per-lane timings live only in `suite-report.md` — carrying them in a hand-edited
+  table is what caused the original mislabel.
+- `#B12` — the structural zero-spawn argument was phrased file-locally, which stopped being
+  sufficient the moment `test/helpers/` existed: an imported helper could spawn while every listed
+  file passed the check. Both the argument and the backlog entry's criterion now say **transitive
+  closure**.

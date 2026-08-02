@@ -41,8 +41,18 @@ Two separate loader probes: `test/fixtures/vite-call-probe` (committed, built fo
 injected in separate runs** — combining both in one `NODE_OPTIONS` silently zeroed the vite counts
 (measured, not assumed).
 
-Independently of the probe, L1 is now *structurally* incapable of spawning: none of its eight files
-mentions `child_process`, `spawnSync`, `spawn(`, `execSync`, `execFileSync`, `execFile(` or `fork(`.
+Independently of the probe, L1 is now *structurally* incapable of spawning — and the check is on
+the **transitive closure**, not just the eight listed files: neither those files nor anything they
+import mentions `child_process`, `spawnSync`, `spawn(`, `execSync`, `execFileSync`, `execFile(` or
+`fork(`. The closure distinction started mattering the moment `test/helpers/` existed (review #B12):
+a file-local check would pass while an imported helper spawned.
+
+Closure here means: start from a lane's listed files, follow every relative `from "./…"` import
+transitively. Measured that way — including the `src/` modules the tests import — L1's closure is
+**19 files with 0 spawn-API mentions**; L2's is 12 with 4; L3's is 4 with 3. (An earlier draft of
+this file quoted 8 / 5 / 4, which came from counting only files under `test/`. Those were the
+reviewer's figures and I had reproduced them without re-deriving them — the same mistake this
+report exists to catch, so the numbers above are my own walk.)
 
 Nothing asserts this invariant in the suite itself; tracked as `test-lane-invariant-unguarded` (P2).
 

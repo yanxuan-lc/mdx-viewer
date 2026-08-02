@@ -149,26 +149,38 @@ test / release / maintain 分组。Makefile 是薄封装，底层仍调 `npm` �
 `test/` 用 Node 内置 `node --test`（**零第三方测试依赖**）；`e2e/` 用 Playwright（唯一的
 devDependency）。两者互不重叠：`npm test` 不跑 e2e，e2e 也不替代单测。
 
-| 文件 | 层次 | 覆盖 | 特点 |
+| 文件 | 车道 | 覆盖 | 特点 |
 |---|---|---|---|
-| `test/resolve.test.mjs` | 单元 | `src/cli/resolve.mjs`：`resolveInput` / `scanTree` / `pickDefaultDoc` | fixture 树在系统临时目录现建现清，纯逻辑、快 |
-| `test/localized-docs.test.mjs` | 单元 | `src/cli/localized-docs.mjs`：`.zh-CN`/`.en-US` 文件族识别与归组 | 纯字符串逻辑 |
-| `test/locale.test.mjs` | 单元 | `src/i18n/locale.mjs`：locale 判定、`t()` 取词、系统 Locale 归一 | 纯逻辑 |
-| `test/cli-language.test.mjs` | 单元 | `src/cli/language.mjs`：`--lang` / `MDXV_LANG` / 系统 Locale 优先级与非法值报错 | 纯逻辑 |
-| `test/cli-output.test.mjs` | 单元 | `src/cli/output.mjs`：ANSI 着色判定、help / error 格式化 | 纯逻辑 |
-| `test/local-document-links.test.mjs` | 单元 | `src/app/local-document-links.mjs`：POSIX/Windows 路径归一与相对链接解析 | 纯逻辑 |
-| `test/nav-tree.test.mjs` | 单元 | `src/app/nav-tree.mjs`：嵌套目录树折叠、目录优先排序、祖先目录枚举 | 纯逻辑 |
-| `test/mdx-pipeline.test.mjs` | 集成 | `src/mdx/plugins.mjs` 编译管线：frontmatter / GFM / 数学 / 高亮 / 图三车道 | 用官方 `@mdx-js/mdx` 的 `compile()` 跑 `mdxOptions()`，断言编译产物标记 |
-| `test/export.test.mjs` | 端到端冒烟 | `bin/mdxx.mjs` 导出：零外链、base64 内联、版本注入 | 真实 `vite build`，产物写临时目录不落仓库，较慢（~7s） |
+| `test/resolve.test.mjs` | L1 | `src/cli/resolve.mjs`：`resolveInput` / `scanTree` / `pickDefaultDoc` | fixture 树在临时目录现建现清 |
+| `test/locale.test.mjs` | L1 | `src/i18n/locale.mjs`：locale 判定、`t()` 取词、系统 Locale 归一 | 纯逻辑 |
+| `test/localized-docs.test.mjs` | L1 | `src/cli/localized-docs.mjs`：`.zh-CN`/`.en-US` 文件族识别与归组 | 纯字符串逻辑 |
+| `test/nav-tree.test.mjs` | L1 | `src/app/nav-tree.mjs`：嵌套目录树折叠、目录优先排序、祖先枚举 | 纯逻辑 |
+| `test/local-document-links.test.mjs` | L1 | `src/app/local-document-links.mjs`：POSIX/Windows 路径归一与相对链接解析 | 纯逻辑 |
+| `test/mdx-pipeline.test.mjs` | L1 | `src/mdx/plugins.mjs` 编译管线：frontmatter / GFM / 数学 / 高亮 / 图三车道 | 直接调官方 `compile()` 跑 `mdxOptions()` |
+| `test/diagram-theme.test.mjs` | L1 | `src/mdx/diagrams.mjs`：颜色语义化、遮罩/裁剪守卫、缺省色继承 | 63 条，全进程内 |
+| `test/compile-check.test.mjs` | L1 | `src/cli/compile-check.mjs` + `output.mjs` 的 check-* 呈现 | 直接函数调用，**零子进程** |
+| `test/cli-output.test.mjs` | **L2** | `src/cli/output.mjs` 的 CLI 侧：help / 错误 / 状态面板、着色随流 | **spawn 两个 binary**，不跑构建 |
+| `test/cli-language.test.mjs` | **L2** | `--lang` / `MDXV_LANG` / 系统 Locale 的端到端优先级与报错 | **spawn 两个 binary**；含 4 次真实 dev server |
+| `test/compile-check.cli.test.mjs` | **L2** | `mdxv --check` 的黑盒 CLI 契约 S1–S11 / S13 / S15 / S16 / S18 / S19 + `#A1`/`#B5` argv 探测 | 只 spawn `mdxv`，不跑构建 |
+| `test/compile-check.no-build.test.mjs` | **L2** | S12：`--check` 不进构建路径 | 用 `test/fixtures/vite-call-probe` 钉住 |
+| `test/export.test.mjs` | **L3** | `bin/mdxx.mjs` 导出：零外链、base64 内联、版本注入 | 真实 `vite build`，一次构建摊给 10 条断言 |
+| `test/cli-export.test.mjs` | **L3** | 需要真实构建的 CLI 断言：A3 构建失败本地化、A5 locale provenance、S3 状态面板 | 6 次构建，矩阵四次由 `describe` 共用 |
+| `test/compile-check.export-pairing.test.mjs` | **L3** | S14 / S20：`--check` 与 `mdxx` 的配对差值断言 | 4 次构建；差值语义，不可拆车道 |
+| `test/helpers/cli-env.mjs` | — | 不是测试文件（故意不叫 `*.test.mjs`，否则会被 gate 的 glob 收进去） | L2 与 L3 共用的 env 构造 |
 | `e2e/i18n-preferences.spec.mjs` | e2e | 语言 / 主题三态切换、LocalStorage 持久化、跟随系统配色 | Playwright，`playwright.config.mjs` 起 dev server |
 | `e2e/localized-document-variants.spec.mjs` | e2e | 文档族选择、导航去重、`?doc=` 归一、相对链接族内路由 | 用 `e2e/fixtures/localized/` |
 | `e2e/empty-states.spec.mjs` | e2e | 空目录 / 渲染错误 / 非法 mode 等边界态 | 用 `e2e/empty-state-server.mjs` 起临时 Vite |
+
+> 表里不写各车道耗时——那正是上一次错标的成因。当前实测数字只有一处来源：
+> `openspec/changes/retier-test-lanes/genai/suite-report.md`（带 commit 戳）。
 
 - `test/fixtures/export-sample.mdx` 是导出测试的最小样例（committed）。
 - 版本号断言从 `package.json` 读，不写死——bump 版本不需要改测试。
 - **仍无 lint / typecheck 脚本**：应用侧 `.tsx` 走 Vite 宽松转译，无独立 tsc 门禁。
 - **测试车道按依赖表面分，不按耗时**（耗时是结果，依赖表面可 grep 且不会漂）：
-  L1 `test:unit` 进程内 import `src/`、零 spawn；L2 `test:cli` spawn `bin/` 断 stdout/exit code、
+  L1 `test:unit` 进程内 import `src/`、零 spawn（判据按**传递闭包**算：L1 文件自己不 spawn，
+  它 import 的 helper 也不能——`test/helpers/` 存在之后这一跳必须算进来）；
+  L2 `test:cli` spawn `bin/` 断 stdout/exit code、
   不跑构建（dev server 算 L2）；L3 `test:build` 跑真实 Vite 构建。**新增文件要加进对应车道的
   显式清单**，否则那条 `make test-<lane>` 不会跑到它——但 `make test` 用 glob 收全部
   `test/*.test.mjs`，门控不会漏。

@@ -52,6 +52,7 @@ src/
     preferences.mjs 偏好纯逻辑：主题三态 auto/light/dark、LocalStorage 读写、浏览器 Locale
     PreferencesProvider.tsx  偏好 + 语言的 React Context（`usePreferences()` 提供 `t`）
     local-document-links.mjs  浏览器侧纯路径解析（统一 POSIX/Windows 物理文档路径）
+    nav-tree.mjs    文件抽屉的树形折叠：扁平 rel 列表 → 嵌套目录树（纯逻辑）
     components/
       blocks.tsx    自定义块组件（Hero/Section/Callout/…）
       client.tsx    需浏览器运行时的组件（Math/Footer/Colophon）
@@ -127,6 +128,7 @@ devDependency）。两者互不重叠：`npm test` 不跑 e2e，e2e 也不替代
 | `test/cli-language.test.mjs` | 单元 | `src/cli/language.mjs`：`--lang` / `MDXV_LANG` / 系统 Locale 优先级与非法值报错 | 纯逻辑 |
 | `test/cli-output.test.mjs` | 单元 | `src/cli/output.mjs`：ANSI 着色判定、help / error 格式化 | 纯逻辑 |
 | `test/local-document-links.test.mjs` | 单元 | `src/app/local-document-links.mjs`：POSIX/Windows 路径归一与相对链接解析 | 纯逻辑 |
+| `test/nav-tree.test.mjs` | 单元 | `src/app/nav-tree.mjs`：嵌套目录树折叠、目录优先排序、祖先目录枚举 | 纯逻辑 |
 | `test/mdx-pipeline.test.mjs` | 集成 | `src/mdx/plugins.mjs` 编译管线：frontmatter / GFM / 数学 / 高亮 / 图三车道 | 用官方 `@mdx-js/mdx` 的 `compile()` 跑 `mdxOptions()`，断言编译产物标记 |
 | `test/export.test.mjs` | 端到端冒烟 | `bin/mdxx.mjs` 导出：零外链、base64 内联、版本注入 | 真实 `vite build`，产物写临时目录不落仓库，较慢（~7s） |
 | `e2e/i18n-preferences.spec.mjs` | e2e | 语言 / 主题三态切换、LocalStorage 持久化、跟随系统配色 | Playwright，`playwright.config.mjs` 起 dev server |
@@ -149,6 +151,10 @@ devDependency）。两者互不重叠：`npm test` 不跑 e2e，e2e 也不替代
   **文件树以磁盘为准**：启动时的扫描结果只是首屏快照，`/__mdxv/tree` 每次请求都重扫；根目录挂到
   Vite watcher 上，`.md`/`.mdx` 增删推自定义 HMR 事件 `mdxv:tree`，前端据此重取列表只重画抽屉
   （不重新 import 当前文档）。当前文档被删则落到 `empty.notFound`，重新出现则自动打开。
+  **抽屉是文件树**：`src/app/nav-tree.mjs` 把扁平列表按 `rel` 的每一段折成嵌套目录（目录在前、
+  同级按名称排序），每层一个 `<details>`；折叠状态以完整目录路径为键存 `localStorage`
+  （`mv-nav-collapsed`），当前文档的祖先目录一律强制展开（正文内链可跳进折叠着的目录）。
+  缩进与层级引导线由行上的 `--depth` 在 `theme.css` 里换算，不写死每层的 padding。
 - **build（mdxx）**：单篇经 `virtual:mdx-target` re-export 目标 `.mdx`，走 `vite build` +
   `vite-plugin-singlefile`，`assetsInlineLimit` 拉满，KaTeX 字体、用到的 Mermaid 运行时全部
   base64 内联，产出零外链单文件。

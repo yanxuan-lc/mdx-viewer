@@ -13,6 +13,17 @@ goes to) and the author surface (components, component props, frontmatter fields
 pixels are not a contract: a fix to make invisible text visible necessarily changes them, and
 such changes are called out per release instead.
 
+## [Unreleased]
+
+### Changed
+
+- **The `mdxv` file drawer is now a real file tree.** Directories used to be one flat list of
+  groups keyed by their whole path — `guide/advanced/internals` was a single row, and nesting was
+  invisible. Every path segment now becomes its own collapsible level, directories sort before
+  documents, and each level draws an indent guide. Collapse state is still remembered per
+  directory path, and the directories enclosing the open document are always expanded, so a
+  relative link that jumps into a collapsed directory no longer hides the highlighted entry.
+
 ## [0.3.1] — 2026-07-31
 
 ### Fixed

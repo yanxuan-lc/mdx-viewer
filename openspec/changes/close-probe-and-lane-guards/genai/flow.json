@@ -1,0 +1,167 @@
+{
+  "vector": {
+    "intent": "build",
+    "archetype": "refactor",
+    "criticality": "supporting",
+    "lane": "min",
+    "level": "change",
+    "cross-family": "deny"
+  },
+  "composedAt": "2026-08-02T14:18:03.658Z",
+  "order": [
+    "implement",
+    "code-review",
+    "existing-suite",
+    "ready"
+  ],
+  "nodes": [
+    {
+      "level": "change",
+      "intent": [
+        "build"
+      ],
+      "blocking": true,
+      "id": "code-review",
+      "title": "code review",
+      "realized-as": "subagent",
+      "executor": "code-reviewer",
+      "requires": [
+        "implement"
+      ],
+      "produces": "code-review/checklist.md",
+      "instruction": "instructions/code-review.md",
+      "model": "top",
+      "parallel-hint": [
+        "e2e-author"
+      ],
+      "on-fail": {
+        "target": "implement",
+        "max": 2,
+        "then": "escalate-human"
+      },
+      "evidence": [
+        {
+          "kind": "file-nonempty",
+          "verifies": "form",
+          "path": "code-review/checklist.md"
+        },
+        {
+          "kind": "grep-present",
+          "verifies": "form",
+          "path": "code-review/checklist.md",
+          "pattern": "genai:code-review\\.verdict"
+        },
+        {
+          "kind": "grep-present",
+          "verifies": "form",
+          "path": "code-review/checklist.md",
+          "pattern": "genai:code-review\\.verdict[^\\n]*\\bblocking-open=0\\b"
+        },
+        {
+          "kind": "commit-match",
+          "verifies": "form",
+          "path": "code-review/checklist.md",
+          "field": "Commit",
+          "equals": "HEAD"
+        }
+      ]
+    },
+    {
+      "level": "change",
+      "intent": [
+        "build"
+      ],
+      "blocking": true,
+      "id": "existing-suite",
+      "title": "existing test suite",
+      "applies-when": {
+        "lane": [
+          "min"
+        ]
+      },
+      "realized-as": "inline",
+      "requires": [
+        "implement"
+      ],
+      "produces": "suite-report.md",
+      "instruction": "instructions/existing-suite.md",
+      "evidence": [
+        {
+          "kind": "file-nonempty",
+          "verifies": "form",
+          "path": "suite-report.md"
+        },
+        {
+          "kind": "commit-match",
+          "verifies": "form",
+          "path": "suite-report.md",
+          "field": "Commit",
+          "equals": "HEAD"
+        }
+      ]
+    },
+    {
+      "level": "change",
+      "intent": [
+        "build"
+      ],
+      "blocking": true,
+      "id": "implement",
+      "title": "TDD implementation",
+      "realized-as": "subagent",
+      "executor": "developer",
+      "requires": [],
+      "produces": "tdd-evidence.md",
+      "instruction": "instructions/implement.md",
+      "on-fail": {
+        "target": "implement",
+        "max": 2,
+        "then": "escalate-human"
+      },
+      "evidence": [
+        {
+          "kind": "file-nonempty",
+          "verifies": "form",
+          "path": "tdd-evidence.md"
+        },
+        {
+          "kind": "commit-match",
+          "verifies": "form",
+          "path": "tdd-evidence.md",
+          "field": "Commit",
+          "equals": "HEAD"
+        },
+        {
+          "kind": "cmd-exit0",
+          "verifies": "form",
+          "cmd-from-config": "check-diff",
+          "once-per-subject": true
+        }
+      ]
+    },
+    {
+      "level": "change",
+      "intent": [
+        "build"
+      ],
+      "blocking": true,
+      "id": "ready",
+      "title": "ready for integration",
+      "realized-as": "script",
+      "requires": [
+        "implement",
+        "code-review",
+        "existing-suite"
+      ],
+      "instruction": "instructions/ready.md",
+      "evidence": [
+        {
+          "kind": "file-exists",
+          "verifies": "form",
+          "path": "flow.json"
+        }
+      ]
+    }
+  ],
+  "skipped": {}
+}

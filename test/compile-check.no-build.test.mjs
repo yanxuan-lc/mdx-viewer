@@ -31,7 +31,10 @@ const { MDXV_LANG, ...CLEAN_ENV } = process.env;
    新判据在这一面上严格弱于它取代的那个。 */
 const probeEnv = (out) => ({
   ...CLEAN_ENV,
-  MDXV_PROBE_OUT: out,
+  // 用本文件专属的变量名，不碰 MDXV_PROBE_OUT：车道级测量（把探针注进整条 test:cli 数
+  // 构建/派生次数）用的正是那个名字，此前本文件会把它就地重定向到自己的临时文件，
+  // 于是车道级测量对本文件的子进程完全没有覆盖（code-review #B13/#B16）。
+  MDXV_PROBE_OUT_S12: out,
   NODE_OPTIONS: [CLEAN_ENV.NODE_OPTIONS, `--import ${PRELOAD_URL}`].filter(Boolean).join(" "),
 });
 
@@ -57,7 +60,10 @@ test("S12: `mdxv --check` completes without ever calling Vite's build or createS
       { cwd: REPO, encoding: "utf8", env, timeout: 30_000 },
     );
     assert.equal(result.status, 0, `--check should pass on the project's own full-feature example: ${result.stderr}`);
-    assert.deepEqual(callsIn(out), [], "--check must not enter Vite at all — no build, no dev server, in this process or any it spawns");
+    // 既断「没进 vite」，也断「没派生任何子进程」——后者堵的是 code-review 记下的逃逸路径：
+    // 子进程若被显式传入不含 NODE_OPTIONS 的 env，它里面的 vite 调用看不见，但「派生」
+    // 这个动作在父进程里仍然看得见。
+    assert.deepEqual(callsIn(out), [], "--check must neither enter Vite nor spawn anything — not in this process, not in any child");
   });
 });
 

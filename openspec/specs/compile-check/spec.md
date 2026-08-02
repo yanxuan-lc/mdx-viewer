@@ -249,17 +249,19 @@ SHALL NOT be translated or rewritten.
 The check SHALL be materially cheaper than the `mdxx` export workaround it replaces, performing one
 compile per document with no Vite build. The **asserted** criterion SHALL be that structural fact
 itself — the check SHALL complete without ever entering Vite, calling neither `build` nor
-`createServer` — rather than any measurement of elapsed time. Wall-clock figures are recorded as a
-budget for the performance gate and are never asserted in the test suite: a wall-clock ratio is
-satisfiable by slowing the export down, is insensitive to a check that merely doubles in cost, and
-false-fails under CPU contention because it compares a startup-dominated process against a
-throughput-bound one. Because the structural criterion runs no build, the scenario SHALL live in the
-fast unit lane.
+`createServer`, in its own process or in any process it spawns — rather than any measurement of
+elapsed time. Elapsed time SHALL NOT be asserted: a wall-clock ratio against `mdxx` is satisfiable by
+slowing the export down, is insensitive to a check that merely doubles in cost, and false-fails under
+CPU contention because it compares a startup-dominated process against a throughput-bound one.
+Because the structural criterion runs no build, the scenario SHALL live in the fast unit lane.
 
 #### Scenario: S12 Check does not enter the build path
 
-- **WHEN** `mdxv --check examples/demo.mdx` runs with Vite's `build` and `createServer` instrumented
-- **THEN** the check exits 0 having called neither of them, while the same instrumentation applied to
-  the same binary in preview mode is observed calling `createServer` — so a probe that has stopped
-  detecting anything fails the scenario instead of passing it vacuously
+- **WHEN** `mdxv --check examples/demo.mdx` runs with Vite's `build` and `createServer` instrumented,
+  by a mechanism that is inherited by any child process the check may spawn
+- **THEN** the check exits 0 having called neither of them
+- **AND** the same instrumentation applied to the same binary in preview mode is observed calling
+  `createServer`, and the instrumentation is shown to cover both entry points rather than only the
+  one the control exercises — so a probe that has stopped detecting anything, or that has silently
+  narrowed, fails the scenario instead of passing it vacuously
 

@@ -5,7 +5,7 @@
       从 stdout / stderr / exit code 三处分别断言 —— 不导入、不注入、不替换编译函数（R4）。
       本文件属快车道（进 package.json 的 test:unit 清单），无重量级 Vite 构建，
       唯一例外是 S14 的配对断言必须各跑一次真实 `mdxx`（正确性要求，非性能要求）。
-      S12（性能场景）单独在慢车道文件 test/compile-check.perf.test.mjs。
+      S12（`--check` 不进构建路径）单独在 test/compile-check.no-build.test.mjs，同属快车道。
    ============================================================ */
 import { test } from "node:test";
 import assert from "node:assert/strict";

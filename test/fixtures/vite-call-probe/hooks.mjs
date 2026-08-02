@@ -8,7 +8,6 @@ const WRAPPED = ["build", "createServer"];
 export async function resolve(specifier, context, nextResolve) {
   if (specifier !== "vite") return nextResolve(specifier, context);
   const resolved = await nextResolve(specifier, context);
-  if (resolved.url.includes(MARK)) return resolved;
   return { ...resolved, url: `${resolved.url}${MARK}`, shortCircuit: true };
 }
 
@@ -25,7 +24,12 @@ export async function load(url, context, nextLoad) {
     source: `
       import { appendFileSync } from "node:fs";
       import * as real from ${real};
-      const note = (name) => appendFileSync(process.env.MDXV_PROBE_OUT, name + "\\n");
+      const note = (name) => {
+        const out = process.env.MDXV_PROBE_OUT;
+        // 没设记录文件说明探针被误用了。静默吞掉会让断言空洞，所以点名说清楚。
+        if (!out) throw new Error("vite-call-probe: MDXV_PROBE_OUT is not set, so the call to " + name + " cannot be recorded");
+        appendFileSync(out, name + "\\n");
+      };
       ${wrappers}
       export const __mdxvProbedExports = ${JSON.stringify(WRAPPED)};
       export * from ${real};

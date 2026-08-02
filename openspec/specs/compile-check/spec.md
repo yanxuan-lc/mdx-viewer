@@ -247,17 +247,19 @@ SHALL NOT be translated or rewritten.
 ### Requirement: Check performance budget
 
 The check SHALL be materially cheaper than the `mdxx` export workaround it replaces, performing one
-compile per document with no Vite build. The **asserted** criterion SHALL be the machine-independent
-ratio: on the project's full-feature example document the check SHALL take at most one fifth of the
-wall time `mdxx` takes on that same document, measured in the same session. Absolute wall-clock figures
-are recorded as a budget for the performance gate, not asserted in the test suite, and the scenario that
-times `mdxx` SHALL live in the slow test lane rather than in the fast unit lane it would otherwise turn
-into a multi-second command.
+compile per document with no Vite build. The **asserted** criterion SHALL be that structural fact
+itself — the check SHALL complete without ever entering Vite, calling neither `build` nor
+`createServer` — rather than any measurement of elapsed time. Wall-clock figures are recorded as a
+budget for the performance gate and are never asserted in the test suite: a wall-clock ratio is
+satisfiable by slowing the export down, is insensitive to a check that merely doubles in cost, and
+false-fails under CPU contention because it compares a startup-dominated process against a
+throughput-bound one. Because the structural criterion runs no build, the scenario SHALL live in the
+fast unit lane.
 
-#### Scenario: S12 Check beats the export workaround
+#### Scenario: S12 Check does not enter the build path
 
-- **WHEN** `mdxv --check examples/demo.mdx` and `mdxx examples/demo.mdx <tmp>` are timed in the same
-  session on the same machine
-- **THEN** the check takes at most one fifth of the export's wall time, and the assertion is on that
-  ratio rather than on any absolute number of seconds
+- **WHEN** `mdxv --check examples/demo.mdx` runs with Vite's `build` and `createServer` instrumented
+- **THEN** the check exits 0 having called neither of them, while the same instrumentation applied to
+  the same binary in preview mode is observed calling `createServer` — so a probe that has stopped
+  detecting anything fails the scenario instead of passing it vacuously
 

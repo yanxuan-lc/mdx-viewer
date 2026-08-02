@@ -2,6 +2,28 @@
 
 面向所有 Agent（Claude Code / Cursor / Codex / Gemini / Aider 等）的项目事实。
 
+<!-- gen-ai-development:router v3.0 -->
+## Work routing (applies every turn)
+
+1. **Classify this turn's intent**: `act` (default) | `align` | `research` | `design` | `build`.
+   The test is **whether the intent points at a change to product code**, not whether this
+   particular operation happened to touch a file — wanting a bug fixed is `build` (even if it
+   turns out no code needs changing); explaining code, finding files, branch/merge chores, and
+   running a command are `act`.
+   **Thin evidence means `act`; `act` starts no flow.**
+2. **Only `build` assembles a FLOW.** The other intents route elsewhere and compose nothing:
+   `align` → BACKLOG / SPRINT operations; `research` → the `research-pipeline` skill;
+   `design` → the `app-ux-design` skill. There is no research FLOW and no design FLOW — no
+   node in the catalog declares those intents, so composing one assembles nothing and errors.
+3. A non-`act` classification that differs from the current focus item → **ask the user whether
+   to switch**; never switch on your own.
+4. Classified as `build` → run `preflight` first; if it fails, stop and report rather than
+   routing around it.
+5. The focus is held by the main agent alone; subagents neither inherit it nor change it.
+6. When the environment variable `GENAI_AUDIT_ONLY` is set, every turn is `act` and **assembling
+   any FLOW is forbidden** (the recursion guard for cross-family invocation).
+<!-- /gen-ai-development:router -->
+
 ## 项目简介
 
 本地 MDX 渲染器。两个命令：
@@ -77,8 +99,13 @@ openspec/           OpenSpec 规格库（非运行时代码）
 
 ## 命令
 
-**统一前门是 `make`**：`make`（或 `make help`）列出全部可用命令，按 general / run / maintain
-分组。Makefile 是薄封装，底层仍调 `npm` 与 `bin/`；下表为其映射与直接调用等价。
+**统一前门是 `make`**：`make`（或 `make help`）列出全部可用命令，按 general / run / check /
+test / release / maintain 分组。Makefile 是薄封装，底层仍调 `npm` 与 `bin/`；下表为其映射与直接
+调用等价。`genai/config.json` 的 `commands` 也指向这些 make 目标——门禁跑的和你手上跑的是同一条。
+
+本项目**没有 build 阶段**：纯 ESM，`bin/` + `src/` 原样发包（见 `package.json` 的 `files`），
+无编译产物。`genai/config.json` 里因此写作 `"build": false`（「本项目没有这个阶段」），而不是
+凑一个空转的目标。
 
 | make | 直接命令 | 作用 |
 |---|---|---|
@@ -88,6 +115,7 @@ openspec/           OpenSpec 规格库（非运行时代码）
 | `make view FILE=<f\|dir> [ARGS=…]` | `mdxv <f\|dir>` | 预览 |
 | `make check-mdx FILE=<f\|dir> [ARGS=…]` | `mdxv --check <f\|dir>` | 只校验能否编译，不起服务（交付前门禁） |
 | `make export FILE=<f> [OUT=…]` | `mdxx <f>` | 导出自包含 HTML |
+| `make lint` | — | 静态检查：全部 `.mjs` 语法解析 + `scripts/*.sh` 语法 + 随包 MDX 编译校验 |
 | `make test` | `npm test` | 全部 node 测试（单元 + 集成 + 导出冒烟；**不含 e2e**） |
 | `make test-unit` | `npm run test:unit` | 仅单元 + 集成（快，无 vite 构建） |
 | `make test-export` | `npm run test:export` | 仅导出自包含冒烟（含 vite 构建，较慢） |

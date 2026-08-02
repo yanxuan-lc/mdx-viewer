@@ -63,8 +63,8 @@ Claude Code 专属内容（Subagent 登记表、委派规则）。**不要在 pr
 ## 研发闭环
 
 用你自己的话描述需求——「给 `Callout` 加一个 `tone=success`」「`mdxx` 导出里 mermaid 图的深色主题
-不对」——交给 autonomy controller 编排。它会分类变更（archetype / 关键度 / 可逆性）、定自治档位、
-组装轨道：
+不对」——交给 `flow` 引擎编排。它会分类意图、为这次变更组装 FLOW，节点状态一律从磁盘检测得出，
+不依赖任何人的记忆：
 
 | 节点 | 承担者 | 产出 |
 |---|---|---|
@@ -79,8 +79,17 @@ Claude Code 专属内容（Subagent 登记表、委派规则）。**不要在 pr
 | `merge` | 你 | 合入 `dev` |
 | `archive` | `openspec archive <id>` | 变更移入 `openspec/changes/archive/`，其 spec 合并进 `openspec/specs/` |
 
-不适用的节点会以 `[-]` **带理由记为 skipped**，绝不静默丢弃。完整的真实留痕见
-[`openspec/changes/archive/2026-07-25-i18n-preferences/PIPELINE.md`](./openspec/changes/archive/2026-07-25-i18n-preferences/PIPELINE.md)。
+不适用的节点会**带理由记为 skipped**，绝不静默丢弃。
+
+上表的每份产物都落在该变更自己的 `genai/` 子目录里——`openspec/changes/<id>/genai/`——和记录节点
+检测状态的 `flow.json` 放在一起。spec 本身（`proposal.md` · `design.md` · `specs/` · `tasks.md`）
+仍留在变更根目录，那是 `openspec` 认的位置。项目级状态（BACKLOG · INBOX · sprint · `config.json`）
+统一放在仓库根的 `genai/`。
+
+完整的真实留痕见
+[`openspec/changes/archive/2026-07-25-i18n-preferences/`](./openspec/changes/archive/2026-07-25-i18n-preferences/)
+——注意归档变更早于当前布局，证据仍摊在变更根目录，用的是手写的 `PIPELINE.md`，而非今天检测得出的
+`flow.json`。
 
 ## 红线
 
@@ -138,7 +147,8 @@ make demo        # 用眼睛过一遍组件总览：两种主题 × 两种语言
 - 正文写给「当时不在场的读者」：原来错在哪、你决定了什么、你验证了什么。翻一下 `git log`，那就是
   标准线。
 - Agent 写的提交带 `Co-Authored-By:` trailer，注明写它的模型。
-- 一个 PR 应包含：代码、其测试、`openspec/changes/<id>/` 目录（spec、`PIPELINE.md`、各门报告），
+- 一个 PR 应包含：代码、其测试、`openspec/changes/<id>/` 目录（spec，以及 `genai/` 下的 `flow.json`
+  与各门报告），
   以及用户可见行为变化时的文档更新——`README.md` 与 `README.zh-CN.md` 一起改，项目事实变了还要改
   `AGENTS.md`。
 

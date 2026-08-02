@@ -45,8 +45,9 @@ Agent 里硬做。表中为能力摘要，具体行为以各 agent 定义为准�
 - **并行原则**：多个互不依赖的子任务，一次消息里发起多个 `Agent` 调用并行跑。
 - **理解不外包**：不要把「基于结果再修复」的判断完全交给 Subagent；主 Agent 必须读关键文件
   并做综合，Subagent 的最终报告不会展示给用户，需由主 Agent 转述要点。
-- **研发按 `gen-ai-development:autonomy-controller` skill 编排**：三信号分类、自治档位、轨道
-  组装、按档位定门、按强度验证、`PIPELINE.md` 状态落盘均以该 skill 为准；此处只留指针，不复制内容。
+- **研发按 `gen-ai-development:flow` skill 编排**：意图分类、FLOW 组装、节点状态检测、门禁判定
+  全部由 `flow` 引擎脚本给出；此处只留指针，不复制内容。BACKLOG / INBOX / SPRINT / 项目配置
+  统一落在 `genai/`，单个 change 的状态与证据落在 `openspec/changes/<id>/genai/`。
 - **调研需求按 `gen-ai-development:research-pipeline` skill 编排**：澄清、确认、追问都在主
   Agent；`researcher` 仅作为执行单元被派发。
 - **改 skill / agent / command / prompt / 文档本身不算研发**，不走上述编排（以 skill-creator 为权威轨道）。

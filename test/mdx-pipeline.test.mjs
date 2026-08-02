@@ -80,10 +80,16 @@ test("图 · dot 车道：构建期出内联 SVG，黑色描边打上前景语�
   const js = await getCompiled();
   assert.ok(js.includes("mv-diagram-dot"), "应有 dot 车道包裹");
   assert.ok(js.includes('"svg"'), "应生成内联 svg 元素");
-  // 颜色不再是编译产物里的字面 "currentColor"（那是旧字符串 regex 的做法）；
-  // 现在 hast 层只打语义 class，真实颜色值在 theme.css 里随主题联动，
-  // 拼写矩阵与「文字节点缺省 fill」的细节覆盖见 test/diagram-theme.test.mjs。
+  // 语义 class 这条：真实颜色值在 theme.css 里随主题联动（不再是编译产物里的
+  // 字面 "currentColor"，那是旧字符串 regex 的做法）。
   assert.ok(js.includes("mv-diagram-fg-stroke"), "黑色描边应打上前景语义色 class");
+  // 根 svg 的缺省色这条才是集成层对**核心根因**的见证：描边在修复前本来就是好的
+  // （旧 regex 已处理 stroke="black"），真正不可见的是「谁都没声明 fill」的文字节点，
+  // 现在靠根上这一个表现属性顺继承链兜住。少了它，本 bug 能在集成层静默复发。
+  // `\s*`：这里读的是**未压缩**的编译产物（`fill: "currentColor"`），
+  // export.test.mjs 读的是压缩后的导出包（`fill:"currentColor"`）。
+  assert.match(js, /fill:\s*"currentColor"/, "根 <svg> 应带缺省色属性 fill=currentColor");
+  // 拼写矩阵与遮罩等细节覆盖见 test/diagram-theme.test.mjs。
 });
 
 test("图 · mermaid 车道：保留源码交客户端渲染", async () => {

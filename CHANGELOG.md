@@ -15,7 +15,23 @@ such changes are called out per release instead.
 
 ## [Unreleased]
 
+### Fixed
+
+- **`mdxv --check` after a `--` terminator no longer claims check-mode exit codes.** Everything
+  after a bare `--` stops being an option, so `mdxv --lang <bad> -- --check` is not a check run —
+  but the bare-argv probe still saw the token and reported an argument-level failure as `2`
+  ("the check could not run") instead of `1`. The probe now truncates at the first `--`, matching
+  what the parser itself decides. Bare `--check` and `--check=<value>` are unaffected.
+
 ### Changed
+
+- **`make publish-dry` runs from any branch again** (repository-only, not shipped in the package).
+  The publish script stops a non-`main` publish outright rather than warning — the right call for
+  an irreversible action — but the gate sits ahead of the dry run, so the rehearsal that exists
+  precisely to be done *before* merging to `main` could not be done anywhere. The exemption now
+  lives at the call site: `publish-dry` passes `ALLOW_NON_MAIN=1` itself, and the gate keeps
+  telling the truth for real publishes. `ALLOW_NON_MAIN` is also listed in the script's own
+  switch header now, where the other escape hatches were already documented.
 
 - **The `mdxv` file drawer is now a real file tree.** Directories used to be one flat list of
   groups keyed by their whole path — `guide/advanced/internals` was a single row, and nesting was

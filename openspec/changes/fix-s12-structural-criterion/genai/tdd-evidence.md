@@ -88,9 +88,13 @@ Also from the same review:
   "the preview died early" from "the probe is dead" — previously both surfaced as the latter after
   a silent 10 s spin.
 
-Filed to INBOX rather than fixed here: `probe-wrapped-list-vs-repo-vite-surface` (P2) — nothing
-pins `WRAPPED` to the repo's actual vite entry surface, so a future import of `createBuilder` /
-`preview` / `optimizeDeps` would narrow the probe silently. Verified complete as of today.
+Raised by review but **not** carried forward: nothing pins `WRAPPED` to the repo's actual vite
+entry surface, so a future import of `createBuilder` / `preview` / `optimizeDeps` would narrow the
+probe silently. It was briefly filed as `probe-wrapped-list-vs-repo-vite-surface` (P2) and then
+**dropped on the user's decision** — the reviewer confirmed across two rounds that `WRAPPED` is
+complete today (the repo's only named `vite` imports are `bin/mdxx.mjs:9` and `bin/mdxv.mjs:12`),
+so the item rested on reasoning with no measurement behind it. The risk is recorded here instead;
+if it ever materialises it will do so as a real, measurable gap.
 
 ## Commands run
 

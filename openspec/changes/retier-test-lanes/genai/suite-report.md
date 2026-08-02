@@ -1,6 +1,6 @@
 # suite-report — retier-test-lanes
 
-Commit: PENDING
+Commit: 0afc3edb827bf83cbda67e085ad3268bbacc9e7e
 
 The minimal lane's verification carrier: the project's own suite, run whole. Numbers below are
 measured at the commit stamped above — **not carried over from an earlier round**. Round 1 of this

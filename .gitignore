@@ -7,5 +7,10 @@ test-results/
 playwright-report/
 .env
 .env.*
-.claude/agent-memory/
+# Agent 工具的本地配置目录：只属于某台机器上的某个工具，不属于仓库。
+# 注意这里忽略的是目录 `.agents/`，不是根目录被跟踪的 AGENTS.md / CLAUDE.md ——
+# 那两份是写给所有 agent 的项目事实，必须进版本控制。
+.claude/
+.codex/
+.agents/
 genai/local.json

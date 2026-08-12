@@ -1,6 +1,6 @@
 # suite-report — close-probe-and-lane-guards
 
-Commit: 70d36cddf0526781ef917a37dfb5faaf0460269a
+Commit: 988e488c0efd4ca46364babb5ece76560d2ce779
 
 Everything reproducible at HEAD lives here and nowhere else. Recorded as exit code plus all four
 counters, because a `describe()`-scoped `before()` throw marks its tests `cancelled` rather than
@@ -8,13 +8,13 @@ counters, because a `describe()`-scoped `before()` throw marks its tests `cancel
 
 | command | exit | tests | pass | fail | cancelled | skipped |
 |---|---|---|---|---|---|---|
-| `npm test` (full gate) | **0** | 251 | 251 | 0 | 0 | 0 |
-| `npm run test:unit` (L1) | 0 | 189 | 189 | 0 | 0 | 0 |
+| `npm test` (full gate) | **0** | 252 | 252 | 0 | 0 | 0 |
+| `npm run test:unit` (L1) | 0 | 190 | 190 | 0 | 0 | 0 |
 | `npm run test:cli` (L2) | 0 | 46 | 46 | 0 | 0 | 0 |
 | `npm run test:build` (L3) | 0 | 16 | 16 | 0 | 0 | 0 |
 | `make lint` | **0** | — | — | — | — | — |
 
-189 + 46 + 16 = 251. Up 4 from 247: the four assertions in the new `test/test-lanes.test.mjs`.
+190 + 46 + 16 = 252. Up 5 from 247: the five assertions in the new `test/test-lanes.test.mjs`.
 
 ## Lane invariant, measured — and the shadowing is gone
 

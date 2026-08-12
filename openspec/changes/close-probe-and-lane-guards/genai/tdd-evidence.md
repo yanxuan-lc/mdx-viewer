@@ -1,6 +1,6 @@
 # tdd-evidence — close-probe-and-lane-guards
 
-Commit: 70d36cddf0526781ef917a37dfb5faaf0460269a
+Commit: 988e488c0efd4ca46364babb5ece76560d2ce779
 
 Pays down the two remaining INBOX items. Lane `min`: no spec node; input is the task description.
 No product code changed.

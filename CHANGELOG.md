@@ -13,9 +13,17 @@ goes to) and the author surface (components, component props, frontmatter fields
 pixels are not a contract: a fix to make invisible text visible necessarily changes them, and
 such changes are called out per release instead.
 
-## [Unreleased]
+## [0.3.1] — 2026-08-12
 
 ### Fixed
+
+- **Documents created after `mdxv` started never appeared in the file drawer.** The tree was
+  scanned once at startup and served verbatim for the life of the server, and the browser
+  fetched it once at boot — so neither side ever noticed the disk. `GET /__mdxv/tree` now
+  rescans on every request, the document root is watched for `.md`/`.mdx` additions and
+  removals, and the page refreshes the drawer in place without re-importing the open document.
+  Deleting the document you are reading falls back to the "not found" state, and restoring it
+  reopens it.
 
 - **`mdxv --check` after a `--` terminator no longer claims check-mode exit codes.** Everything
   after a bare `--` stops being an option, so `mdxv --lang <bad> -- --check` is not a check run —
@@ -39,18 +47,6 @@ such changes are called out per release instead.
   documents, and each level draws an indent guide. Collapse state is still remembered per
   directory path, and the directories enclosing the open document are always expanded, so a
   relative link that jumps into a collapsed directory no longer hides the highlighted entry.
-
-## [0.3.1] — 2026-07-31
-
-### Fixed
-
-- **Documents created after `mdxv` started never appeared in the file drawer.** The tree was
-  scanned once at startup and served verbatim for the life of the server, and the browser
-  fetched it once at boot — so neither side ever noticed the disk. `GET /__mdxv/tree` now
-  rescans on every request, the document root is watched for `.md`/`.mdx` additions and
-  removals, and the page refreshes the drawer in place without re-importing the open document.
-  Deleting the document you are reading falls back to the "not found" state, and restoring it
-  reopens it.
 
 ## [0.3.0] — 2026-07-28
 
@@ -126,6 +122,7 @@ First public release: the MDX renderer, the `mdxv` preview server and the `mdxx`
 self-contained single-file export, plus the semantic component set and the gated publish
 pipeline.
 
+[0.3.1]: https://github.com/yanxuan-lc/mdx-viewer/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/yanxuan-lc/mdx-viewer/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/yanxuan-lc/mdx-viewer/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/yanxuan-lc/mdx-viewer/releases/tag/v0.1.0

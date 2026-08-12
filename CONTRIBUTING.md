@@ -68,9 +68,9 @@ delegation rules). Do not restate project facts in your prompts — point the ag
 ## The development loop
 
 Describe what you want in your own words — "give `Callout` a `tone=success`", "mermaid diagrams
-render with the wrong theme in the `mdxx` export" — and let the autonomy controller route it. It
-classifies the change (archetype / criticality / reversibility), sets an autonomy ceiling, and
-assembles the track:
+render with the wrong theme in the `mdxx` export" — and let the `flow` engine route it. It
+classifies the intent, assembles the FLOW for the change, and detects each node's state from disk
+rather than from anyone's memory:
 
 | Node | Owner | Output |
 |---|---|---|
@@ -85,9 +85,18 @@ assembles the track:
 | `merge` | you | merge into `dev` |
 | `archive` | `openspec archive <id>` | moves the change into `openspec/changes/archive/` and merges its spec into `openspec/specs/` |
 
-Nodes that do not apply are recorded as skipped **with a reason** (`[-]`), never silently dropped.
+Nodes that do not apply are recorded as skipped **with a reason**, never silently dropped.
+
+Every artifact in the table above lands in the change's own `genai/` subdirectory —
+`openspec/changes/<id>/genai/` — alongside `flow.json`, the machine-detected node state. The spec
+itself (`proposal.md` · `design.md` · `specs/` · `tasks.md`) stays at the change root, where
+`openspec` expects it. Project-level state (BACKLOG · INBOX · sprints · `config.json`) lives in
+`genai/` at the repository root.
+
 For a complete real trail, read
-[`openspec/changes/archive/2026-07-25-i18n-preferences/PIPELINE.md`](./openspec/changes/archive/2026-07-25-i18n-preferences/PIPELINE.md).
+[`openspec/changes/archive/2026-07-25-i18n-preferences/`](./openspec/changes/archive/2026-07-25-i18n-preferences/)
+— note that archived changes predate the current layout and keep their evidence at the change root,
+with a hand-written `PIPELINE.md` in place of today's detected `flow.json`.
 
 ## The red lines
 
@@ -138,8 +147,17 @@ make test-e2e    # Playwright end-to-end (first run: npx playwright install)
 make demo        # eyeball the gallery in both themes and both languages
 ```
 
-- **New pure-logic module** → add a `test/*.test.mjs`, and **add that file to the `test:unit` list in
-  `package.json`**. The list is explicit; `make test-unit` will not pick it up otherwise.
+- **Pick the lane by dependency surface, not by how long it takes.** Every `test/*.test.mjs` belongs
+  to exactly one of three explicit lists in `package.json`, and **a new file must be added to the
+  right one** or that `make test-<lane>` will not pick it up (`make test` globs, so the gate never
+  misses it):
+  - `test:unit` — in-process only, imports `src/`, **zero subprocesses**. Sub-second.
+  - `test:cli` — spawns `bin/`, asserts stdout / exit code, **no Vite build** (a dev server is fine).
+  - `test:build` — runs a real Vite build. Slowest; keep it to assertions that genuinely need one.
+- **New pure-logic module** → add a `test/*.test.mjs` in `test:unit`.
+- **A test that must spawn a CLI** → `test:cli`, even if it is fast. **A test that must build** →
+  `test:build`, even if it is one assertion. Mixing a build into a lower lane is the exact defect
+  this partition exists to prevent — it stayed hidden for months last time.
 - **Touched the compile pipeline** → add an assertion to `test/mdx-pipeline.test.mjs`, which compiles
   through the official `@mdx-js/mdx`.
 - **Touched anything affecting self-containment** → assert it in `test/export.test.mjs`.
@@ -159,8 +177,9 @@ make demo        # eyeball the gallery in both themes and both languages
 - Write the body for a reader who was not there: what was wrong, what you decided, what you verified.
   Skim `git log` — that is the bar.
 - Agent-authored commits carry a `Co-Authored-By:` trailer naming the model that wrote them.
-- A pull request should contain the code, its tests, the `openspec/changes/<id>/` directory (spec,
-  `PIPELINE.md`, gate reports), and documentation updates when user-visible behaviour changed —
+- A pull request should contain the code, its tests, the `openspec/changes/<id>/` directory (the
+  spec, plus `flow.json` and the gate reports under its `genai/`), and documentation updates when
+  user-visible behaviour changed —
   `README.md` and `README.zh-CN.md` together, plus `AGENTS.md` if a project fact changed.
 
 ## Reporting a bug or proposing a feature

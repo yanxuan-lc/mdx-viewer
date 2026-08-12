@@ -10,13 +10,25 @@ import { Hero, resetSectionIds } from "./components/blocks";
 import { Footer, Colophon } from "./components/client";
 import { PreferencesProvider, usePreferences, type InitialPreferences } from "./PreferencesProvider";
 import { buildLocalizedDocumentUrl, resolveLocalDocumentLink } from "./local-document-links.mjs";
+import { ancestorDirectories, buildNavTree } from "./nav-tree.mjs";
 
 type FM = Record<string, any>;
 
 export type NavFile = { rel: string; abs: string; dir: string; familyRel?: string; locale?: "zh-CN" | "en-US" };
 
-const COLLAPSE_KEY = "mv-nav-collapsed";
+/** 文件树节点：目录（含子节点）或文档叶子。 */
+type NavTreeNode =
+  | { kind: "dir"; name: string; path: string; children: NavTreeNode[] }
+  | { kind: "file"; name: string; file: NavFile };
+
+const COLLAPSE_KEY = "mv-nav-collapsed"; // 折叠着的目录路径集合：localStorage 记忆
 const NAV_OPEN_KEY = "mv-nav-open"; // 抽屉开关：sessionStorage 记忆，跨切文件的整页刷新保留
+
+/** 落盘折叠集合并原样返回，供 setState 直接用作新状态。 */
+function persistCollapsed(next: Set<string>) {
+  try { localStorage.setItem(COLLAPSE_KEY, JSON.stringify([...next])); } catch { /* unavailable storage is non-blocking */ }
+  return next;
+}
 
 const ZOOM_MIN = 0.1;
 const ZOOM_MAX = 8;
@@ -32,7 +44,41 @@ function docTitle(fm: FM, currentDoc?: string): string {
   return currentDoc.slice(currentDoc.lastIndexOf("/") + 1).replace(/\.mdx?$/i, "");
 }
 
-/** 文件抽屉：菜单按钮触发，从左滑入的悬浮浮层。目录分组可折叠、状态持久化。 */
+/** 缩进层级交给 CSS 换算（见 theme.css 的 --depth）。 */
+const depthStyle = (depth: number) => ({ "--depth": depth }) as React.CSSProperties;
+
+/** 树的一层：目录折成 <details>，文档是 <a>；目录在前、文件在后由 buildNavTree 排好。 */
+function NavTreeLevel({ nodes, depth, currentDoc, collapsed, onToggleDir, onPick }: {
+  nodes: NavTreeNode[]; depth: number; currentDoc?: string;
+  collapsed: Set<string>; onToggleDir: (path: string, isOpen: boolean) => void; onPick: () => void;
+}) {
+  return (
+    <>
+      {nodes.map((node) => {
+        if (node.kind === "dir") {
+          return (
+            <details className="mv-navgroup" key={`dir:${node.path}`} open={!collapsed.has(node.path)}
+              onToggle={(e) => onToggleDir(node.path, e.currentTarget.open)}>
+              <summary style={depthStyle(depth)}><ChevronRight className="chev" size={14} /><span>{node.name}</span></summary>
+              <div className="mv-navgroup-body" style={depthStyle(depth)}>
+                <NavTreeLevel nodes={node.children} depth={depth + 1} currentDoc={currentDoc}
+                  collapsed={collapsed} onToggleDir={onToggleDir} onPick={onPick} />
+              </div>
+            </details>
+          );
+        }
+        const url = new URL(location.href);
+        url.searchParams.set("doc", node.file.abs);
+        return (
+          <a key={node.file.abs} className={node.file.abs === currentDoc ? "active" : ""} style={depthStyle(depth)}
+            href={`${url.pathname}${url.search}`} onClick={onPick}>{node.name}</a>
+        );
+      })}
+    </>
+  );
+}
+
+/** 文件抽屉：菜单按钮触发，从左滑入的悬浮浮层。目录树逐级可折叠、状态持久化。 */
 function NavDrawer({ files, currentDoc, open, onClose }: {
   files: NavFile[]; currentDoc?: string; open: boolean; onClose: () => void;
 }) {
@@ -45,27 +91,28 @@ function NavDrawer({ files, currentDoc, open, onClose }: {
     try { const v = JSON.parse(localStorage.getItem(COLLAPSE_KEY) || "[]"); return new Set(Array.isArray(v) ? v : []); }
     catch { return new Set(); }
   });
-  const setGroup = (dir: string, isOpen: boolean) =>
+  const setGroup = React.useCallback((dir: string, isOpen: boolean) =>
     setCollapsed((prev) => {
+      if (isOpen === !prev.has(dir)) return prev;
       const next = new Set(prev);
       if (isOpen) next.delete(dir); else next.add(dir);
-      try { localStorage.setItem(COLLAPSE_KEY, JSON.stringify([...next])); } catch { /* unavailable storage is non-blocking */ }
-      return next;
+      return persistCollapsed(next);
+    }), []);
+
+  const tree = React.useMemo(() => buildNavTree(files) as NavTreeNode[], [files]);
+
+  // 当前这篇的祖先目录始终展开：正文内链可跳进折叠着的目录，否则高亮项藏在树里看不见。
+  const currentRel = files.find((f) => f.abs === currentDoc)?.rel;
+  React.useEffect(() => {
+    const ancestors = ancestorDirectories(currentRel);
+    if (!ancestors.length) return;
+    setCollapsed((prev) => {
+      if (!ancestors.some((path) => prev.has(path))) return prev;
+      const next = new Set(prev);
+      for (const path of ancestors) next.delete(path);
+      return persistCollapsed(next);
     });
-
-  const byDir: Record<string, NavFile[]> = {};
-  for (const f of files) (byDir[f.dir] ||= []).push(f);
-
-  const link = (f: NavFile, dir: string) => {
-    const url = new URL(location.href);
-    url.searchParams.set("doc", f.abs);
-    const raw = f.rel.replace(/\.mdx?$/i, "");
-    const label = dir ? raw.slice(dir.length + 1) : raw; // 分组内只显示相对该目录的名字
-    return (
-      <a key={f.abs} className={f.abs === currentDoc ? "active" : ""}
-        href={`${url.pathname}${url.search}`} onClick={onClose}>{label}</a>
-    );
-  };
+  }, [currentRel]);
 
   return (
     <>
@@ -76,17 +123,8 @@ function NavDrawer({ files, currentDoc, open, onClose }: {
           <button className="mv-nav-close" onClick={onClose} aria-label={t("nav.close")} title={t("nav.close")}><X size={16} /></button>
         </div>
         <nav className="mv-nav">
-          {Object.entries(byDir).map(([dir, list]) =>
-            !dir ? (
-              <div className="mv-navroot" key="__root">{list.map((f) => link(f, dir))}</div>
-            ) : (
-              <details className="mv-navgroup" key={dir} open={!collapsed.has(dir)}
-                onToggle={(e) => setGroup(dir, e.currentTarget.open)}>
-                <summary><ChevronRight className="chev" size={14} /><span>{dir}</span></summary>
-                <div className="mv-navgroup-body">{list.map((f) => link(f, dir))}</div>
-              </details>
-            )
-          )}
+          <NavTreeLevel nodes={tree} depth={0} currentDoc={currentDoc}
+            collapsed={collapsed} onToggleDir={setGroup} onPick={onClose} />
         </nav>
       </aside>
     </>

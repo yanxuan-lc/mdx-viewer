@@ -43,8 +43,8 @@ const RESOLVE_ALIAS = {
  * @param {object} o
  * @param {"file"|"dir"} o.mode
  * @param {string} [o.target]   单篇模式：目标 .mdx 绝对路径
- * @param {string} [o.root]     目录模式：根目录绝对路径
- * @param {Array}  [o.files]    目录模式：文件树
+ * @param {string} [o.root]     目录模式：根目录绝对路径（dev 下也是文件树的重扫与监听目标）
+ * @param {Array}  [o.files]    目录模式：文件树首屏快照（dev 之后以磁盘为准，见 plugin.mjs）
  * @param {string} [o.firstDoc] 目录模式：默认文档绝对路径
  * @param {string} o.version
  * @param {string} o.license
@@ -63,7 +63,7 @@ export function buildConfig(o) {
     configFile: false,
     plugins: [
       { enforce: "pre", ...mdx(mdxOptions()) },
-      mdxvPlugin({ mode: o.mode, target: o.target, files: o.files, firstDoc: o.firstDoc, initialLocale: o.initialLocale, localeSource: o.localeSource }),
+      mdxvPlugin({ mode: o.mode, target: o.target, root: o.root, files: o.files, firstDoc: o.firstDoc, initialLocale: o.initialLocale, localeSource: o.localeSource }),
       ...(o.extraPlugins || []),
     ],
     define: {

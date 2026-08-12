@@ -1,27 +1,24 @@
 /* ============================================================
    E2E · `mdxv --check` — 校验模式的黑盒 CLI 契约测试
-   —— 依据 openspec/changes/mdx-compile-check/specs/compile-check/spec.md 的场景 S1–S16 / S18 / S19
-      逐条断言，只驱动真实子进程 `bin/mdxv.mjs`（部分场景配对 `bin/mdxx.mjs`），
-      从 stdout / stderr / exit code 三处分别断言 —— 不导入、不注入、不替换编译函数（R4）。
-      本文件属快车道（进 package.json 的 test:unit 清单），无重量级 Vite 构建，
-      唯一例外是 S14 的配对断言必须各跑一次真实 `mdxx`（正确性要求，非性能要求）。
-      S12（性能场景）单独在慢车道文件 test/compile-check.perf.test.mjs。
+   —— 依据 openspec/specs/compile-check/spec.md 的场景逐条断言：本文件覆盖
+      S1–S11 / S13 / S15 / S16 / S18 / S19，外加 #A1 / #B5 裸 argv 探测回归组。
+      只驱动真实子进程 `bin/mdxv.mjs`，从 stdout / stderr / exit code 三处分别断言
+      —— 不导入、不注入、不替换编译函数（R4）。
+      本文件属 L2 子进程车道（test:cli）：只 spawn `bin/mdxv.mjs`，**不跑任何 Vite 构建**。
+      两条需要真实 `mdxx` 构建的配对场景 S14 / S20 在 test/compile-check.export-pairing.test.mjs
+      （L3，test:build）；S12「--check 不进构建路径」在 test/compile-check.no-build.test.mjs（L2）。
    ============================================================ */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync, chmodSync, readFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync, chmodSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { join, dirname, resolve } from "node:path";
 import { connect } from "node:net";
-import { evaluate } from "@mdx-js/mdx";
-import * as jsxRuntime from "react/jsx-runtime";
-import { renderToStaticMarkup } from "react-dom/server";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(__dirname, "..");
-const FIXTURES = join(REPO, "test", "fixtures", "compile-check-e2e");
 
 // 环境干净化：去掉 MDXV_LANG，避免宿主环境影响 locale 相关断言。
 const { MDXV_LANG, ...CLEAN_ENV } = process.env;
@@ -31,13 +28,10 @@ function runCheck(args, { timeout = 30_000, env = CLEAN_ENV } = {}) {
   return spawnSync(process.execPath, ["bin/mdxv.mjs", ...args], { cwd: REPO, encoding: "utf8", timeout, env });
 }
 
-/** 跑一次 `mdxx`（仅 S14 配对断言需要，跑真实 Vite 构建）。 */
-function runExport(args, { timeout = 120_000, env = CLEAN_ENV } = {}) {
-  return spawnSync(process.execPath, ["bin/mdxx.mjs", ...args], { cwd: REPO, encoding: "utf8", timeout, env });
-}
-
 const rel = (...segments) => join("test", "fixtures", "compile-check-e2e", ...segments).split("\\").join("/");
-const abs = (...segments) => join(FIXTURES, ...segments);
+/** #A1 / #B5 回归组用的是单测那套 fixture（test/fixtures/compile-check/）——
+ *  它们只需要一份存在且合法的 .mdx，断言全在 argv 与退出码上，不在文档内容上。 */
+const unitFixture = (name) => join(REPO, "test", "fixtures", "compile-check", name);
 
 /** @param {number} port @returns {Promise<void>} resolves on connect, rejects on refused/timeout (S7) */
 function connectTo(port) {
@@ -333,27 +327,30 @@ test("S13: format follows the extension in both directions — .md passes, byte-
   assert.match(mdxResult.stdout, /^✗ .+:\d+:\d+  Unexpected character `\|` \(U\+007C\) in name/);
 });
 
-test("S14: an unresolvable top-level import passes --check but fails mdxx; the same import fenced in ```js passes both", () => {
-  const importFixture = rel("boundary", "unresolvable-import.mdx");
-  const fencedFixture = rel("boundary", "fenced-import.mdx");
+// ---- #A1: the `--check` bare-argv probe must agree with cac's own boolean coercion ----------
 
-  const checkOnImport = runCheck(["--check", importFixture, "--lang", "en-US"]);
-  assert.equal(checkOnImport.status, 0, "unresolvable top-level import is compile-only clean, so --check must pass it");
-  assert.equal(checkOnImport.stdout.trim(), `✓ ${importFixture}`);
+test("#A1: `--check=true` is detected by the bare-argv probe, so an argument-level failure alongside it exits 2 (not 1)", () => {
+  const result = runCheck(["--check=true", unitFixture("pass.mdx"), "--lang", "xx-XX"]);
+  assert.equal(result.status, 2, `previously exited 1 (misdiagnosed as a broken document): stderr=${result.stderr}`);
+  assert.match(result.stderr, /^Error: /);
+});
 
-  const tmp = mkdtempSync(join(tmpdir(), "mdxv-check-s14-"));
-  try {
-    const exportOnImport = runExport([importFixture, join(tmp, "import.html"), "--lang", "en-US"]);
-    assert.equal(exportOnImport.status, 1, "mdxx must fail on the same document — the real pipeline can't resolve the specifier");
+test("#A1: bare `--check` still exits 2 on the same argument-level failure (control, must not regress)", () => {
+  const result = runCheck(["--check", unitFixture("pass.mdx"), "--lang", "xx-XX"]);
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /^Error: /);
+});
 
-    const exportOnFenced = runExport([fencedFixture, join(tmp, "fenced.html"), "--lang", "en-US"]);
-    assert.equal(exportOnFenced.status, 0, "import lines inside a ```js fence are inert text and must not fail export");
+test("#A1: `--check=false` is cac's one literal falsy spelling, so it must NOT be swept into check-mode's exit-2 accounting", () => {
+  const result = runCheck(["--check=false", unitFixture("pass.mdx"), "--lang", "xx-XX"]);
+  assert.equal(result.status, 1, "an argument-level failure while --check is off exits 1, same as with no --check flag at all");
+  assert.match(result.stderr, /^Error: /);
+});
 
-    const checkOnFenced = runCheck(["--check", fencedFixture, "--lang", "en-US"]);
-    assert.equal(checkOnFenced.status, 0);
-  } finally {
-    rmSync(tmp, { recursive: true, force: true });
-  }
+test("#B5: after a bare `--`, `--check` is no longer an option to cac, so the probe must not claim check-mode either", () => {
+  const result = runCheck(["--lang", "xx-XX", "--", "--check"]);
+  assert.equal(result.status, 1, `cac gives opts.check === undefined here, so the contract is exit 1; previously the probe saw the token and exited 2: stderr=${result.stderr}`);
+  assert.match(result.stderr, /^Error: /);
 });
 
 test("S15: a piped report for a >=20-document directory loses no line to an early process exit", () => {
@@ -397,70 +394,6 @@ test("S19: malformed math is not detected — the document still passes", () => 
   assert.equal(result.status, 0);
   assert.equal(result.stdout.trim(), `✓ ${rel("boundary", "malformed-math.mdx")}`);
 });
-
-test("S20: an evaluation-time-only tier-B subset is witnessed by neither --check nor mdxx — regression-pinned, not extended onto S14's build-time assertion", async () => {
-  // 乙档不是均匀可见的：specifier 无法解析在 build 期就死（mdxx exit 1，S14 已钉住）；
-  // 而「顶层初始化器自身抛错」与「{…} 表达式自身抛错」只在浏览器求值/渲染期才炸——
-  // mdxx 照样吐出一份会在浏览器里炸掉的 5MB 自包含 HTML，exit 0。命令行层没有任何一道
-  // 现有门能见证这个子集；本场景钉住这个事实本身，而不是去悄悄扩展 S14 的 mdxx 断言
-  // （R6 明确禁止——那样写出来的断言是假的）。
-  const initializerFixture = rel("boundary", "throwing-initializer.mdx");
-  const expressionFixture = rel("boundary", "throwing-expression.mdx");
-
-  // B7 见证断言：先独立证明两份 fixture 真的会在预期阶段抛错，而不是只信任它们的文件名。
-  // 少了这一步，下面两组 exit 0 断言在 fixture 被误改成正常文档后照样全绿，场景就悄悄失真了。
-  await assertGenuinelyThrowsAt(abs("boundary", "throwing-initializer.mdx"), "evaluation");
-  await assertGenuinelyThrowsAt(abs("boundary", "throwing-expression.mdx"), "render");
-
-  for (const fixture of [initializerFixture, expressionFixture]) {
-    const checkResult = runCheck(["--check", fixture, "--lang", "en-US"]);
-    assert.equal(checkResult.status, 0, `--check must not detect ${fixture} — it never evaluates the module`);
-    assert.equal(checkResult.stdout.trim(), `✓ ${fixture}`);
-  }
-
-  const tmp = mkdtempSync(join(tmpdir(), "mdxv-check-s20-"));
-  try {
-    for (const fixture of [initializerFixture, expressionFixture]) {
-      const exportResult = runExport([fixture, join(tmp, `${fixture.replace(/[\\/]/g, "-")}.html`), "--lang", "en-US"]);
-      assert.equal(
-        exportResult.status,
-        0,
-        `mdxx must also exit 0 on ${fixture} — the browser never runs during build, so the throw is invisible at build time too: ${exportResult.stderr}`,
-      );
-    }
-  } finally {
-    rmSync(tmp, { recursive: true, force: true });
-  }
-});
-
-/**
- * 独立见证一份文档是否真的在预期阶段抛错——不经过 `--check` / `mdxx`，直接用
- * `@mdx-js/mdx` 自己的 `evaluate()` + `react-dom/server` 跑一遍（本仓库已有依赖，不引入新依赖）。
- * 防的是 B7：S20 的两条断言全是 exit 0，若 fixture 后来被改成不再抛错的普通文档，
- * 场景会静默失真——两条 exit 0 断言仍然全绿，却什么都没验证到「求值期/渲染期真的会炸」。
- * @param {string} absPath 文档绝对路径 @param {"evaluation" | "render"} expectedStage 期望的抛错阶段
- */
-async function assertGenuinelyThrowsAt(absPath, expectedStage) {
-  const value = readFileSync(absPath, "utf8");
-  let Content;
-  try {
-    ({ default: Content } = await evaluate({ path: absPath, value }, { ...jsxRuntime, baseUrl: pathToFileURL(absPath).href }));
-  } catch (evaluationError) {
-    assert.equal(
-      expectedStage,
-      "evaluation",
-      `${absPath} threw during module evaluation ("${evaluationError.message}") — expected it to survive evaluation and throw at render instead`,
-    );
-    return;
-  }
-  assert.throws(
-    () => renderToStaticMarkup(Content({})),
-    undefined,
-    `${absPath} did not throw at module evaluation, and did not throw at render either — this fixture no longer witnesses tier B, ` +
-      "which would make S20's exit-0 assertions vacuous (they'd read as coverage of the evaluation-time boundary while asserting nothing about it)",
-  );
-  assert.equal(expectedStage, "render");
-}
 
 /** @param {string} value @returns {string} regex-escaped literal */
 function escapeRegex(value) {

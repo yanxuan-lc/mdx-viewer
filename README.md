@@ -199,7 +199,8 @@ behaviour lives in `e2e/`, driven by Playwright (the only devDependency).
 ```bash
 make test          # all node tests (unit + integration + export smoke; no e2e)
 make test-unit     # fast: pure logic + MDX compile pipeline (no vite build)
-make test-export   # export self-containment smoke (real vite build, ~7s)
+make test-cli      # CLI subprocess contracts, no vite build
+make test-build    # everything that needs a real vite build (slowest)
 make test-e2e      # Playwright end-to-end (first run: npx playwright install)
 ```
 
@@ -227,6 +228,12 @@ You do not need to run an agent to take part — a precise issue is a first-clas
 because it is the brief the pipeline starts from.
 [CONTRIBUTING.md](./CONTRIBUTING.md) covers setup, the development loop, the project's red lines
 (official MDX compatibility, zero-external-link export) and the verification expected before a PR.
+
+## Changelog
+
+[CHANGELOG.md](./CHANGELOG.md) indexes every release; each entry links to its GitHub release for
+the full prose. Releases that change how existing documents render say so explicitly — see
+0.3.0's "what you may notice" for the shape those notices take.
 
 ## License
 

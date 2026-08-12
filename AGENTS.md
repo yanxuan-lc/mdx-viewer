@@ -2,6 +2,28 @@
 
 面向所有 Agent（Claude Code / Cursor / Codex / Gemini / Aider 等）的项目事实。
 
+<!-- gen-ai-development:router v3.0 -->
+## Work routing (applies every turn)
+
+1. **Classify this turn's intent**: `act` (default) | `align` | `research` | `design` | `build`.
+   The test is **whether the intent points at a change to product code**, not whether this
+   particular operation happened to touch a file — wanting a bug fixed is `build` (even if it
+   turns out no code needs changing); explaining code, finding files, branch/merge chores, and
+   running a command are `act`.
+   **Thin evidence means `act`; `act` starts no flow.**
+2. **Only `build` assembles a FLOW.** The other intents route elsewhere and compose nothing:
+   `align` → BACKLOG / SPRINT operations; `research` → the `research-pipeline` skill;
+   `design` → the `app-ux-design` skill. There is no research FLOW and no design FLOW — no
+   node in the catalog declares those intents, so composing one assembles nothing and errors.
+3. A non-`act` classification that differs from the current focus item → **ask the user whether
+   to switch**; never switch on your own.
+4. Classified as `build` → run `preflight` first; if it fails, stop and report rather than
+   routing around it.
+5. The focus is held by the main agent alone; subagents neither inherit it nor change it.
+6. When the environment variable `GENAI_AUDIT_ONLY` is set, every turn is `act` and **assembling
+   any FLOW is forbidden** (the recursion guard for cross-family invocation).
+<!-- /gen-ai-development:router -->
+
 ## 项目简介
 
 本地 MDX 渲染器。两个命令：
@@ -52,6 +74,7 @@ src/
     preferences.mjs 偏好纯逻辑：主题三态 auto/light/dark、LocalStorage 读写、浏览器 Locale
     PreferencesProvider.tsx  偏好 + 语言的 React Context（`usePreferences()` 提供 `t`）
     local-document-links.mjs  浏览器侧纯路径解析（统一 POSIX/Windows 物理文档路径）
+    nav-tree.mjs    文件抽屉的树形折叠：扁平 rel 列表 → 嵌套目录树（纯逻辑）
     components/
       blocks.tsx    自定义块组件（Hero/Section/Callout/…）
       client.tsx    需浏览器运行时的组件（Math/Footer/Colophon）
@@ -76,8 +99,13 @@ openspec/           OpenSpec 规格库（非运行时代码）
 
 ## 命令
 
-**统一前门是 `make`**：`make`（或 `make help`）列出全部可用命令，按 general / run / maintain
-分组。Makefile 是薄封装，底层仍调 `npm` 与 `bin/`；下表为其映射与直接调用等价。
+**统一前门是 `make`**：`make`（或 `make help`）列出全部可用命令，按 general / run / check /
+test / release / maintain 分组。Makefile 是薄封装，底层仍调 `npm` 与 `bin/`；下表为其映射与直接
+调用等价。`genai/config.json` 的 `commands` 也指向这些 make 目标——门禁跑的和你手上跑的是同一条。
+
+本项目**没有 build 阶段**：纯 ESM，`bin/` + `src/` 原样发包（见 `package.json` 的 `files`），
+无编译产物。`genai/config.json` 里因此写作 `"build": false`（「本项目没有这个阶段」），而不是
+凑一个空转的目标。
 
 | make | 直接命令 | 作用 |
 |---|---|---|
@@ -87,9 +115,11 @@ openspec/           OpenSpec 规格库（非运行时代码）
 | `make view FILE=<f\|dir> [ARGS=…]` | `mdxv <f\|dir>` | 预览 |
 | `make check-mdx FILE=<f\|dir> [ARGS=…]` | `mdxv --check <f\|dir>` | 只校验能否编译，不起服务（交付前门禁） |
 | `make export FILE=<f> [OUT=…]` | `mdxx <f>` | 导出自包含 HTML |
+| `make lint` | — | 静态检查：全部 `.mjs` 语法解析 + `scripts/*.sh` 语法 + 随包 MDX 编译校验 |
 | `make test` | `npm test` | 全部 node 测试（单元 + 集成 + 导出冒烟；**不含 e2e**） |
-| `make test-unit` | `npm run test:unit` | 仅单元 + 集成（快，无 vite 构建） |
-| `make test-export` | `npm run test:export` | 仅导出自包含冒烟（含 vite 构建，较慢） |
+| `make test-unit` | `npm run test:unit` | L1：进程内单测，零子进程（亚秒级） |
+| `make test-cli` | `npm run test:cli` | L2：CLI 子进程契约，不跑 vite 构建 |
+| `make test-build` | `npm run test:build` | L3：需要真实 vite 构建的（最慢） |
 | `make test-e2e` | `npm run test:e2e` | Playwright 端到端（需先 `npx playwright install`） |
 | `make publish` | `./scripts/publish.sh` | 发布到 npmjs（版本核验 + 门控 + 读 `.env` token + 打 tag） |
 | `make publish-dry` | `DRY_RUN=1 ./scripts/publish.sh` | 发布演练，不真正发布也不打 tag |
@@ -119,26 +149,47 @@ openspec/           OpenSpec 规格库（非运行时代码）
 `test/` 用 Node 内置 `node --test`（**零第三方测试依赖**）；`e2e/` 用 Playwright（唯一的
 devDependency）。两者互不重叠：`npm test` 不跑 e2e，e2e 也不替代单测。
 
-| 文件 | 层次 | 覆盖 | 特点 |
+| 文件 | 车道 | 覆盖 | 特点 |
 |---|---|---|---|
-| `test/resolve.test.mjs` | 单元 | `src/cli/resolve.mjs`：`resolveInput` / `scanTree` / `pickDefaultDoc` | fixture 树在系统临时目录现建现清，纯逻辑、快 |
-| `test/localized-docs.test.mjs` | 单元 | `src/cli/localized-docs.mjs`：`.zh-CN`/`.en-US` 文件族识别与归组 | 纯字符串逻辑 |
-| `test/locale.test.mjs` | 单元 | `src/i18n/locale.mjs`：locale 判定、`t()` 取词、系统 Locale 归一 | 纯逻辑 |
-| `test/cli-language.test.mjs` | 单元 | `src/cli/language.mjs`：`--lang` / `MDXV_LANG` / 系统 Locale 优先级与非法值报错 | 纯逻辑 |
-| `test/cli-output.test.mjs` | 单元 | `src/cli/output.mjs`：ANSI 着色判定、help / error 格式化 | 纯逻辑 |
-| `test/local-document-links.test.mjs` | 单元 | `src/app/local-document-links.mjs`：POSIX/Windows 路径归一与相对链接解析 | 纯逻辑 |
-| `test/mdx-pipeline.test.mjs` | 集成 | `src/mdx/plugins.mjs` 编译管线：frontmatter / GFM / 数学 / 高亮 / 图三车道 | 用官方 `@mdx-js/mdx` 的 `compile()` 跑 `mdxOptions()`，断言编译产物标记 |
-| `test/export.test.mjs` | 端到端冒烟 | `bin/mdxx.mjs` 导出：零外链、base64 内联、版本注入 | 真实 `vite build`，产物写临时目录不落仓库，较慢（~7s） |
+| `test/resolve.test.mjs` | L1 | `src/cli/resolve.mjs`：`resolveInput` / `scanTree` / `pickDefaultDoc` | fixture 树在临时目录现建现清 |
+| `test/locale.test.mjs` | L1 | `src/i18n/locale.mjs`：locale 判定、`t()` 取词、系统 Locale 归一 | 纯逻辑 |
+| `test/localized-docs.test.mjs` | L1 | `src/cli/localized-docs.mjs`：`.zh-CN`/`.en-US` 文件族识别与归组 | 纯字符串逻辑 |
+| `test/nav-tree.test.mjs` | L1 | `src/app/nav-tree.mjs`：嵌套目录树折叠、目录优先排序、祖先枚举 | 纯逻辑 |
+| `test/local-document-links.test.mjs` | L1 | `src/app/local-document-links.mjs`：POSIX/Windows 路径归一与相对链接解析 | 纯逻辑 |
+| `test/mdx-pipeline.test.mjs` | L1 | `src/mdx/plugins.mjs` 编译管线：frontmatter / GFM / 数学 / 高亮 / 图三车道 | 直接调官方 `compile()` 跑 `mdxOptions()` |
+| `test/diagram-theme.test.mjs` | L1 | `src/mdx/diagrams.mjs`：颜色语义化、遮罩/裁剪守卫、缺省色继承 | 全进程内；含多组拼写矩阵，条数由循环生成 |
+| `test/compile-check.test.mjs` | L1 | `src/cli/compile-check.mjs` + `output.mjs` 的 check-* 呈现 | 直接函数调用，**零子进程** |
+| `test/test-lanes.test.mjs` | L1 | 三条车道的依赖表面不变式：车道归属、L1 零 spawn（按传递闭包）、L1 不 import vite、L3 仍会构建、`bin/`+`src/` 无 CJS require 加载 | 只读文件、零 spawn；判据读 import 说明符而非自由文本 |
+| `test/cli-output.test.mjs` | **L2** | `src/cli/output.mjs` 的 CLI 侧：help / 错误 / 状态面板、着色随流 | **spawn 两个 binary**，不跑构建 |
+| `test/cli-language.test.mjs` | **L2** | `--lang` / `MDXV_LANG` / 系统 Locale 的端到端优先级与报错 | **spawn 两个 binary**；含 4 次真实 dev server |
+| `test/compile-check.cli.test.mjs` | **L2** | `mdxv --check` 的黑盒 CLI 契约 S1–S11 / S13 / S15 / S16 / S18 / S19 + `#A1`/`#B5` argv 探测 | 只 spawn `mdxv`，不跑构建 |
+| `test/compile-check.no-build.test.mjs` | **L2** | S12：`--check` 不进构建路径 | 用 `test/fixtures/vite-call-probe` 钉住 |
+| `test/export.test.mjs` | **L3** | `bin/mdxx.mjs` 导出：零外链、base64 内联、版本注入 | 真实 `vite build`，`before()` 里构建一次、摊给全部断言 |
+| `test/cli-export.test.mjs` | **L3** | 需要真实构建的 CLI 断言：A3 构建失败本地化、A5 locale provenance、S3 状态面板 | 6 次构建，矩阵四次由 `describe` 共用 |
+| `test/compile-check.export-pairing.test.mjs` | **L3** | S14 / S20：`--check` 与 `mdxx` 的配对差值断言 | 4 次构建；差值语义，不可拆车道 |
+| `test/helpers/cli-env.mjs` | — | 不是测试文件（故意不叫 `*.test.mjs`，否则会被 gate 的 glob 收进去） | L2 与 L3 共用的 env 构造 |
 | `e2e/i18n-preferences.spec.mjs` | e2e | 语言 / 主题三态切换、LocalStorage 持久化、跟随系统配色 | Playwright，`playwright.config.mjs` 起 dev server |
 | `e2e/localized-document-variants.spec.mjs` | e2e | 文档族选择、导航去重、`?doc=` 归一、相对链接族内路由 | 用 `e2e/fixtures/localized/` |
 | `e2e/empty-states.spec.mjs` | e2e | 空目录 / 渲染错误 / 非法 mode 等边界态 | 用 `e2e/empty-state-server.mjs` 起临时 Vite |
 
+> 表里不写耗时、也不写测试条数——两者都会随每次运行变，手工维护的那张表正是上一次错标的成因
+> （`diagram-theme` 曾写「63 条」，实际 113：63 是源码里 `test(` 的行数，其余由循环生成）。
+> **耗时与 pass/fail 计数**只有一处来源：
+> `openspec/changes/close-probe-and-lane-guards/genai/suite-report.md`（带 commit 戳；
+> 它取代了 retier-test-lanes 那份——旧报告的数字停在车道重划当时，没有新增的守卫）。
+
 - `test/fixtures/export-sample.mdx` 是导出测试的最小样例（committed）。
 - 版本号断言从 `package.json` 读，不写死——bump 版本不需要改测试。
 - **仍无 lint / typecheck 脚本**：应用侧 `.tsx` 走 Vite 宽松转译，无独立 tsc 门禁。
-- 加新纯逻辑模块时优先补 `test/*.test.mjs` 单测（**并把文件加进 `package.json` 的 `test:unit`
-  显式清单**，否则 `make test-unit` 不会跑到它）；改编译管线补集成断言；碰自包含约束补导出冒烟
-  断言；碰界面行为补 `e2e/` spec。
+- **测试车道按依赖表面分，不按耗时**（耗时是结果，依赖表面可 grep 且不会漂）：
+  L1 `test:unit` 进程内 import `src/`、零 spawn（判据按**传递闭包**算：L1 文件自己不 spawn，
+  它 import 的 helper 也不能——`test/helpers/` 存在之后这一跳必须算进来）；
+  L2 `test:cli` spawn `bin/` 断 stdout/exit code、
+  不跑构建（dev server 算 L2）；L3 `test:build` 跑真实 Vite 构建。**新增文件要加进对应车道的
+  显式清单**，否则那条 `make test-<lane>` 不会跑到它——但 `make test` 用 glob 收全部
+  `test/*.test.mjs`，门控不会漏。
+- 加新纯逻辑模块补 L1 单测；改编译管线补集成断言；碰自包含约束补导出断言（L3）；
+  碰界面行为补 `e2e/` spec。
 
 ## 架构要点
 
@@ -146,6 +197,13 @@ devDependency）。两者互不重叠：`npm test` 不跑 e2e，e2e 也不替代
   扫描根目录下 `.md`/`.mdx` 暴露 `GET /__mdxv/tree`，前端按 `?doc=<绝对路径>` 用 `/@fs`
   动态加载、路由相对链接、多篇时渲染左侧导航。`virtual:mdxv-config` 把 `{mode, firstDoc}`
   注入前端。（虚拟模块 `virtual:mdx-target` 仅 build 用。）
+  **文件树以磁盘为准**：启动时的扫描结果只是首屏快照，`/__mdxv/tree` 每次请求都重扫；根目录挂到
+  Vite watcher 上，`.md`/`.mdx` 增删推自定义 HMR 事件 `mdxv:tree`，前端据此重取列表只重画抽屉
+  （不重新 import 当前文档）。当前文档被删则落到 `empty.notFound`，重新出现则自动打开。
+  **抽屉是文件树**：`src/app/nav-tree.mjs` 把扁平列表按 `rel` 的每一段折成嵌套目录（目录在前、
+  同级按名称排序），每层一个 `<details>`；折叠状态以完整目录路径为键存 `localStorage`
+  （`mv-nav-collapsed`），当前文档的祖先目录一律强制展开（正文内链可跳进折叠着的目录）。
+  缩进与层级引导线由行上的 `--depth` 在 `theme.css` 里换算，不写死每层的 padding。
 - **build（mdxx）**：单篇经 `virtual:mdx-target` re-export 目标 `.mdx`，走 `vite build` +
   `vite-plugin-singlefile`，`assetsInlineLimit` 拉满，KaTeX 字体、用到的 Mermaid 运行时全部
   base64 内联，产出零外链单文件。
@@ -246,6 +304,14 @@ GFM 表格/任务清单/删除线；Shiki 双主题高亮。**改动编译管线
 - **组件 children 里的裸 `{}` / `<`** 会被 MDX 当 JS 表达式 / JSX 解析而报错。要放字面量
   （如 `<Code>` 里的 JSON、含泛型的代码），用 `` {`...`} `` 模板字符串表达式，或改用 Markdown 围栏。
 - **默认工作分支是 `dev`**：`main` 用于发布；不要直接往 `main` 提交。
+- **发布留痕落在两处，别再开第三处**：`CHANGELOG.md` 是索引（每条链到 GitHub Release），
+  GitHub Release 承载完整叙述。`openspec/changes/` 只放在途变更，不要在那里长期存放发布说明。
+  发布时 `package.json` 是唯一版本源（CLI banner、落款、`publish.sh`、导出测试都从它读）；
+  用 `npm version <inc> --no-git-tag-version`，tag 交给 `publish.sh` 在**发布成功后**打，
+  否则 tag 会落在 `dev` 的 bump 提交上而不是 `main` 的合并提交上。
+- **会改变已有文档渲染结果的发布，必须在 Release 说明里单列一节写清**（0.3.0 的
+  "what you may notice" 是范式）：本项目的契约面是 CLI（flag / 退出码 / 输出流）与作者面
+  （组件、组件参数、frontmatter），像素不是契约，但悄悄改掉别人图的样子是最招人烦的一类意外。
 
 ## 术语表
 

@@ -179,7 +179,8 @@ e2e/          Playwright spec + fixtures
 ```bash
 make test          # 全部 node 测试(单元 + 集成 + 导出冒烟,不含 e2e)
 make test-unit     # 快:纯逻辑 + MDX 编译管线(无 vite 构建)
-make test-export   # 导出自包含冒烟(真实 vite 构建,约 7s)
+make test-cli      # CLI 子进程契约,不跑 vite 构建
+make test-build    # 需要真实 vite 构建的(最慢)
 make test-e2e      # Playwright 端到端(首次需 npx playwright install)
 ```
 
@@ -203,6 +204,13 @@ Vite 转译,无独立 tsc 步骤。
 不跑 Agent 也能参与——一个说清楚的 issue 就是一等贡献，因为流程正是从这份 brief 开始的。
 [CONTRIBUTING.zh-CN.md](./CONTRIBUTING.zh-CN.md) 讲清了环境准备、研发闭环、项目红线（官方 MDX
 兼容、零外链导出）以及提 PR 前应有的验证。
+
+## 变更日志
+
+[CHANGELOG.md](./CHANGELOG.md) 是发布索引，每条都链到对应的 GitHub Release 看完整说明。**会改变
+已有文档渲染结果的发布会明确写出来**——0.3.0 的「what you may notice」就是这类提示的样子。
+（该文件与 Release 说明只用英文一份：详细叙述在 Release 里，再维护一份中文副本必然漂移，
+而本项目刚因为文档漂移吃过教训。）
 
 ## 许可证
 

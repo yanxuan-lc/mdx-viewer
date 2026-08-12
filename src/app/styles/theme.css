@@ -439,23 +439,30 @@ body.mv-nav-locked { overflow: hidden; }
   display: inline-flex; padding: 5px; border-radius: 6px; }
 .mv-nav-close:hover { color: var(--ink); background: var(--surface-2); }
 
-.mv-nav { flex: 1; overflow-y: auto; padding: 10px; }
-.mv-nav a { display: block; padding: .35rem .6rem; border-radius: 6px; color: var(--ink-2);
-  text-decoration: none; font-size: .88rem; border: 0; }
+/* 文件树：每行左缩进由所在层级 --depth 换算（目录行对齐箭头，文档行再让出箭头宽度） */
+.mv-nav { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; }
+.mv-nav a { display: block; padding: .3rem .6rem; border-radius: 6px; color: var(--ink-2);
+  padding-left: calc(.6rem + var(--depth, 0) * 14px + 18px);
+  text-decoration: none; font-size: .88rem; border: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mv-nav a:hover { background: var(--surface-2); }
 .mv-nav a.active { background: var(--accent-bg); color: var(--accent); font-weight: 600; }
-.mv-nav .mv-navroot { display: flex; flex-direction: column; }
-.mv-nav details.mv-navgroup { margin-top: .5rem; }
+.mv-nav details.mv-navgroup { min-width: 0; }
 .mv-nav summary { list-style: none; cursor: pointer; user-select: none; display: flex; align-items: center; gap: 4px;
-  font-size: .75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em;
-  padding: .2rem .6rem; border-radius: 6px; }
+  font-size: .88rem; color: var(--ink-2); font-weight: 500;
+  padding: .3rem .6rem; padding-left: calc(.6rem + var(--depth, 0) * 14px); border-radius: 6px; }
 .mv-nav summary::-webkit-details-marker { display: none; }
-.mv-nav summary:hover { color: var(--ink-2); }
-.mv-nav summary .chev { flex: none; transition: transform .15s ease; }
+.mv-nav summary:hover { background: var(--surface-2); color: var(--ink); }
+.mv-nav summary > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mv-nav summary .chev { flex: none; color: var(--muted); transition: transform .15s ease; }
 .mv-nav details[open] > summary .chev { transform: rotate(90deg); }
-.mv-nav .mv-navgroup-body { display: flex; flex-direction: column; margin-top: .1rem; }
+@media (prefers-reduced-motion: reduce) { .mv-nav summary .chev { transition: none; } }
 /* 无条件 display:flex 会盖掉 <details> 关闭时隐藏内容的 UA 规则，需显式隐藏 */
+.mv-nav .mv-navgroup-body { display: flex; flex-direction: column; position: relative; }
 .mv-nav details:not([open]) > .mv-navgroup-body { display: none; }
+/* 层级引导线：落在本级箭头正下方，视觉上把子项挂在父目录上 */
+.mv-nav .mv-navgroup-body::before { content: ""; position: absolute; top: 0; bottom: 0;
+  left: calc(.6rem + var(--depth, 0) * 14px + 7px); width: 1px; background: var(--border); }
 
 /* 空状态提示（doc 为空 / 目录无文档） */
 .mv-empty { min-height: 60vh; display: flex; flex-direction: column; align-items: center; justify-content: center;

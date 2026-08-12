@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "delivery-mode": "registry",
+  "output-language": "zh-CN",
+  "commands": {
+    "test": "make test",
+    "lint": "make lint",
+    "build": false,
+    "check-diff": false
+  }
+}

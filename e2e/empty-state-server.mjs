@@ -10,9 +10,11 @@ if (!(["directory", "select"].includes(state) && ["zh-CN", "en-US"].includes(loc
   throw new Error("Usage: node e2e/empty-state-server.mjs <directory|select> <zh-CN|en-US> <port>");
 }
 
+// "directory"（目录里一篇都没有）必须指向真的空目录：/__mdxv/tree 在 dev 下现扫磁盘，
+// 拿 e2e/fixtures 配 files: [] 已经骗不过去了。"select" 仍用 fixtures，靠下面的插件覆写树。
 const config = buildConfig({
   mode: "dir",
-  root: `${process.cwd()}/e2e/fixtures`,
+  root: `${process.cwd()}/e2e/${state === "directory" ? "empty-fixtures" : "fixtures"}`,
   files: [],
   initialLocale: locale,
   localeSource: "argument",

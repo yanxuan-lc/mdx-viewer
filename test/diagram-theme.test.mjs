@@ -325,12 +325,17 @@ test("svg 车道 · 祖先用表现属性声明 fill 时，子级同样不打任
 test("svg 车道 · <mask> 子树里的黑/白必须原样保留——亮度遮罩里白=显示、黑=隐藏，改颜色等于改遮罩", async () => {
   const wrapper = await renderLane(
     "svg",
-    `<svg><mask id="m"><rect fill="white" width="10" height="10"/><circle fill="black" cx="5" cy="5" r="3"/></mask></svg>`,
+    // `line` 的 stroke 与两个 fill 一起写：stroke 分支走的是另一条 classify 调用点，
+    // 只测 fill 时把 stroke 分类**搬到** insideColorAgnosticContainer 守卫之前仍然全绿
+    // （实测的存活 mutant）——遮罩里的描边同样是亮度语义，动了一样改遮罩。
+    `<svg><mask id="m"><rect fill="white" width="10" height="10"/><circle fill="black" cx="5" cy="5" r="3"/><line stroke="white" x1="0" y1="0" x2="10" y2="10"/></mask></svg>`,
   );
   const rect = findFirst(wrapper, "rect");
   const circle = findFirst(wrapper, "circle");
+  const line = findFirst(wrapper, "line");
   assert.equal(classesOf(rect).length, 0, "遮罩里的白是「全部显示」，换成 --surface 会让遮罩随主题变形");
   assert.equal(classesOf(circle).length, 0, "遮罩里的黑是「挖掉这块」，换成前景色会让被挖的区域重新出现");
+  assert.equal(classesOf(line).length, 0, "遮罩里的描边也是亮度，stroke 分支同样必须让位于遮罩守卫");
 });
 
 test("svg 车道 · <mask> 上必须把 SVG 初始值 fill=black 钉回去——否则根上的缺省前景色会继承进遮罩", async () => {

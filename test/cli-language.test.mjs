@@ -1,24 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { parseLanguageArgument, resolveCliLanguage } from "../src/cli/language.mjs";
 import { mdxvPlugin } from "../src/cli/plugin.mjs";
-
-function environment(overrides = {}) {
-  const next = { ...process.env, ...overrides };
-  if (overrides.MDXV_LANG === undefined) delete next.MDXV_LANG;
-  return next;
-}
-
-function systemLocalePreload(locale) {
-  const source = locale === "throw"
-    ? "Intl.DateTimeFormat=()=>{throw new Error('unavailable')};"
-    : `Intl.DateTimeFormat=()=>({resolvedOptions:()=>({locale:${JSON.stringify(locale)}})});`;
-  return `data:text/javascript;base64,${Buffer.from(source).toString("base64")}`;
-}
+import { environment, systemLocalePreload } from "./helpers/cli-env.mjs";
 
 async function startPreview({ args, env, preload, port }) {
   const child = spawn(process.execPath, [
@@ -152,35 +140,6 @@ test("B2: CAC option errors are localized instead of escaping as stacks", () => 
   }
 });
 
-test("A3: expected export build failure is localized and stack-free", () => {
-  const directory = mkdtempSync(join(tmpdir(), "mdxv-cli-failure-"));
-  try {
-    const output = join(directory, "broken.html");
-    const result = spawnSync(process.execPath, ["bin/mdxx.mjs", "e2e/fixtures/render-error.mdx", output, "--lang", "en-US"], { encoding: "utf8" });
-    assert.equal(result.status, 1);
-    assert.match(result.stderr, new RegExp(`Export failed: ${output.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
-    assert.doesNotMatch(result.stderr, /CACError|Error: Unexpected end|at .*\.mjs:/);
-  } finally {
-    rmSync(directory, { recursive: true, force: true });
-  }
-});
-
-test("A5: mdxx flag wins over environment in a real localized export", () => {
-  const directory = mkdtempSync(join(tmpdir(), "mdxv-cli-success-"));
-  try {
-    const output = join(directory, "localized.html");
-    const result = spawnSync(process.execPath, ["bin/mdxx.mjs", "test/fixtures/export-sample.mdx", output, "--lang", "en-US"], {
-      encoding: "utf8",
-      env: { ...process.env, MDXV_LANG: "zh-CN" },
-    });
-    assert.equal(result.status, 0);
-    assert.match(result.stderr, /self-contained/);
-    assert.match(readFileSync(output, "utf8"), /<html[^>]+lang="en-US"/i);
-  } finally {
-    rmSync(directory, { recursive: true, force: true });
-  }
-});
-
 test("A5: real mdxv subprocess matrix exposes Locale provenance through the virtual module", async () => {
   const cases = [
     { name: "flag", args: ["examples/demo.mdx", "--lang", "en-US"], env: environment({ MDXV_LANG: "zh-CN" }), locale: "en-US", source: "argument", output: /Root / },
@@ -198,33 +157,6 @@ test("A5: real mdxv subprocess matrix exposes Locale provenance through the virt
     } finally {
       await stopPreview(preview.child);
     }
-  }
-});
-
-test("A5: real mdxx subprocess matrix bundles Locale provenance for every selection source", () => {
-  const directory = mkdtempSync(join(tmpdir(), "mdxv-cli-matrix-"));
-  const cases = [
-    { name: "flag", args: ["--lang", "en-US"], env: environment({ MDXV_LANG: "zh-CN" }), preload: undefined, locale: "en-US", source: "argument", output: /self-contained/ },
-    { name: "environment", args: [], env: environment({ MDXV_LANG: "zh-CN" }), preload: undefined, locale: "zh-CN", source: "environment", output: /自包含/ },
-    { name: "system", args: [], env: environment({ MDXV_LANG: undefined }), preload: systemLocalePreload("zh-SG"), locale: "zh-CN", source: "system", output: /自包含/ },
-    { name: "fallback", args: [], env: environment({ MDXV_LANG: undefined }), preload: systemLocalePreload("throw"), locale: "en-US", source: "fallback", output: /self-contained/ },
-  ];
-  try {
-    for (const scenario of cases) {
-      const output = join(directory, `${scenario.name}.html`);
-      const result = spawnSync(process.execPath, [
-        ...(scenario.preload ? ["--import", scenario.preload] : []),
-        "bin/mdxx.mjs", "test/fixtures/export-sample.mdx", output, ...scenario.args,
-      ], { encoding: "utf8", env: scenario.env, timeout: 180_000 });
-      assert.equal(result.status, 0, scenario.name);
-      assert.match(result.stderr, scenario.output, scenario.name);
-      const html = readFileSync(output, "utf8");
-      assert.match(html, new RegExp(`<html[^>]+lang="${scenario.locale}"`, "i"), scenario.name);
-      assert.match(html, new RegExp(`initialLocale["']?\\s*:\\s*["']${scenario.locale}["']`), scenario.name);
-      assert.match(html, new RegExp(`localeSource["']?\\s*:\\s*["']${scenario.source}["']`), scenario.name);
-    }
-  } finally {
-    rmSync(directory, { recursive: true, force: true });
   }
 });
 

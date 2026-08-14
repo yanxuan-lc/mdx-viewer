@@ -84,8 +84,12 @@ export function buildConfig(o) {
         }
       : undefined,
     optimizeDeps: {
-      // 预打包重依赖，减少首屏等待；mermaid/graphviz 按需动态载入不在此列。
-      include: ["react", "react-dom", "react-dom/client", "@mdx-js/react", "katex"],
+      // 预打包重依赖，减少首屏等待。mermaid 虽是动态 import，但 specifier 是静态字符串，
+      // Vite 扫描阶段就能抓到，无需在此声明；graphviz 只在 Node 侧编译期用，不进浏览器图。
+      // react/jsx-dev-runtime 例外：它只出现在 MDX 编译产物里，扫描期看不见，必须显式声明——
+      // 否则首次打开文档才被「运行时发现」，触发重新预打包并整体重写 deps 目录。多个 mdxv
+      // 进程共用同一个 cacheDir（root 恒为包内 src/app），谁重写谁就让别人的 chunk URL 失效。
+      include: ["react", "react-dom", "react-dom/client", "@mdx-js/react", "katex", "react/jsx-dev-runtime"],
     },
     logLevel: "warn",
   };

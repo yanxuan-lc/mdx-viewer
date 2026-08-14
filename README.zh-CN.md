@@ -1,261 +1,328 @@
+<div align="center">
+
 # mdx-viewer
+
+**像打开 `.md` 一样打开 `.mdx`。**
+
+不搭站点工程,不学框架。一条命令在浏览器里预览,一条命令变成一个能发邮件的 HTML 文件。
+
+[![npm](https://img.shields.io/npm/v/mdx-viewer?color=cb3837&logo=npm&logoColor=white)](https://www.npmjs.com/package/mdx-viewer)
+[![node](https://img.shields.io/node/v/mdx-viewer?color=339933&logo=node.js&logoColor=white)](https://nodejs.org)
+[![MDX](https://img.shields.io/badge/MDX-v3%20official-1B1F24?logo=mdx&logoColor=white)](https://mdxjs.com)
+[![license](https://img.shields.io/npm/l/mdx-viewer?color=blue)](./LICENSE)
 
 [English](./README.md) · **简体中文**
 
-本地 MDX 渲染器。`mdxv <file|dir>` 起浏览器预览,`mdxx <file>` 导出自包含离线 HTML。
-基于官方 `@mdx-js` + Vite + React —— **官方 MDX 语法 100% 兼容**,组件可扩展。
+</div>
 
-## 定位与目标
+---
 
-- **一条命令看 MDX**:把 `.mdx` / `.md` 当文档来读,不必先搭 Next.js / Docusaurus 之类的站点工程。
-- **官方标准为红线**:底座即官方参考实现 `@mdx-js/rollup`(MDX v3),CommonMark + JSX + `{}`
-  表达式 + ESM `import`/`export` 全按官方标准解析;官方推荐的扩展(GFM / frontmatter / 数学 /
-  代码高亮)按原版接入。改编译管线时以「不破坏官方兼容」为准则。
-- **一套模板,语义化组件**:内置一套 CSS 变量驱动的 HTML+CSS 模板与语义组件(Hero / Callout /
-  Steps…),作者写 `<Callout>` 无需 import;要扩展只需加一个组件 + 一行映射。
-- **导出即离线**:`mdxx` 产出零外链单文件 HTML,KaTeX 字体、用到的 Mermaid 运行时全部
-  base64 内联,双击即开、可随邮件/附件分发。
-
-## 安装
-
-### 从 npm 安装(推荐)
+## 快速开始
 
 ```bash
-npm install -g mdx-viewer   # 全局安装,提供 mdxv(预览)与 mdxx(导出)
-mdxv demo                   # 打开内置组件总览示例
+npm install -g mdx-viewer   # 提供两个命令:mdxv、mdxx
+mdxv demo                   # 在浏览器里看遍所有组件
 ```
-
-或不安装、一次性运行:
 
 ```bash
-npx -p mdx-viewer mdxv doc.mdx    # 预览
-npx -p mdx-viewer mdxx doc.mdx    # 导出自包含 HTML
+mdxv doc.mdx      # 预览,编辑即热更新
+mdxv ./docs       # 预览整个目录,带左侧导航
+mdxx doc.mdx      # 导出 doc.html —— 自包含,离线可开
 ```
 
-### 从源码安装
+不想安装?`npx -p mdx-viewer mdxv doc.mdx`
+
+## 为什么有它
+
+|  | |
+|---|---|
+| 📄 **是文档,不是站点** | `.mdx` 和 `.md` 是拿来**打开**的东西,不必先搭一套 Next.js / Docusaurus 工程。 |
+| 🎯 **官方 MDX,不是方言** | 底座是官方参考编译器 `@mdx-js/rollup`(MDX v3)。CommonMark + JSX + `{}` 表达式 + ESM `import`/`export` 全按官方标准解析。 |
+| 🎨 **模板本来就是完成品** | 语义组件(`<Callout>`、`<Steps>`、`<Hero>`…)无需 import,一套 CSS 变量主题带明暗两色托住它们。 |
+| 📦 **导出即离线** | 单个 HTML,**零外链** —— KaTeX 字体与 Mermaid 运行时全部 base64 内联。在飞机上双击也能开。 |
+
+## 你写这些
+
+````mdx
+---
+title: 上线手册
+palette: teal
+toc: true
+---
+
+<Callout tone="warn">重启前先把队列排空。</Callout>
+
+<Steps>
+  <Step title="缩容">副本数置 0,等待排空。</Step>
+  <Step title="迁移">执行 `bin/migrate --safe`。</Step>
+</Steps>
+
+```mermaid
+graph LR
+  A[queue] --> B[worker] --> C[(db)]
+```
+
+限流是 $r = \frac{n}{t}$ 次每秒。
+````
+
+然后 `mdxv runbook.mdx`。不用 import,不用配置,不用构建。
+
+## 两个命令
+
+| 命令 | 作用 | 说明 |
+|---|---|---|
+| `mdxv <file>` | 以文件所在目录为根预览 | 保存即热更新 |
+| `mdxv <dir>` | 以该目录为根,打开首篇 | 优先 README/index;出现左侧导航 |
+| `mdxv demo` | 打开内置组件总览 | 每个组件与参数都能实时看到 |
+| `mdxv --check <file\|dir>` | 只做编译校验 —— 不起服务、不写产物 | 退出码 `0` 全通过 / `1` 有文档失败 / `2` 没法校验 |
+| `mdxv config set <key> <value>` | 写用户级配置 | 首次运行时自动创建 |
+| `mdxx <file> [out.html]` | 导出单文件自包含 HTML | 零外链 |
+
+常用选项:`--port <n>` `--host` `--no-open` `--lang <zh-CN\|en-US>` `--font-<role> <families>`。
+`mdxv --help` 有完整的、按你语言呈现的帮助页。
+
+**`mdxv` 对文件和目录一视同仁**:两者都归结为「一个根目录 + 一篇默认文档」—— 文件以父目录为根,
+目录以自身为根。根下有多篇时出现导航、相对链接可互跳;只有一篇时不显示导航。
+
+### 把链接交出去之前先校验
+
+`mdxv` 起得来**不等于**文档能编译 —— MDX 是惰性编译的,浏览器 import 时才编。所以坏掉的文档
+照样给你一条绿色横幅,和一个别人一打开就 500 的地址。
 
 ```bash
-make install       # 装依赖(= npm install)
-make link          # 可选:全局注册 mdxv / mdxx 命令
+mdxv --check ./docs    # 每篇一行报告;报告走 stdout,错误走 stderr
 ```
 
-> 统一入口是 `make`:直接运行 `make` 查看全部命令。也可绕过 Makefile 直接用 `npm` / `mdxv` / `mdxx`。
+> [!IMPORTANT]
+> 通过只意味着文档**能打开**,不意味着它是对的。它查不出未定义的组件、非法的属性值、写坏的数学
+> 公式 —— 这些都能加载出来但渲染是错的;也查不出任何在模块求值 / 渲染期抛错的顶层 ESM 语句或
+> `{…}` 表达式 —— 那会让文档根本加载不出来。这些只是例子,不是清单。围栏代码块里的 `import`
+> 只是文本,所以讲 JavaScript 的文档不受影响。
 
-用 make 快速上手:
+## 写文档
 
-```bash
-make demo                             # 打开内置组件总览示例
-make view FILE=doc.mdx                # 预览(FILE 可为文件或目录)
-make view FILE=./docs ARGS="--port 5000"
-make export FILE=doc.mdx OUT=out.html # 导出自包含 HTML
+### 组件,不用 import
+
+经 `MDXProvider` 注入,`<Callout>` 直接就能写:
+
+`Hero` `Section` `Callout` `Card` `Columns` `Toggle` `Steps`/`Step` `Stats`/`Stat` `Fields`/`Field`
+`Scenario`/`When`/`And`/`Then` `Grid`/`Item`(可筛选) `Badge` `Figure` `Math` `Code` `Footer`
+`Colophon`
+
+参数只有语义值 —— `tone`、`ratio`、`status`,从不出现颜色值,配色始终只有一处来源。
+**要加一个:**在 `src/app/components/blocks.tsx` 写个 React 组件,在
+`src/app/mdx-components.tsx` 的映射表加一行。渲染管线一行都不用动。
+
+### 图,三条车道
+
+用标准围栏代码块承载,围栏语言决定引擎:
+
+| 围栏 | 引擎 | 运行时开销 |
+|---|---|---|
+| `dot` / `graphviz` | 构建期 Graphviz(wasm)→ 静态 SVG | 无 |
+| `mermaid` | 客户端渲染,跟随明暗主题 | 用到才加载 |
+| `svg` | 原样内联 | 无 |
+
+每张图都有一个悬停按钮打开**全屏查看器**:以光标为锚的滚轮缩放、拖拽平移、Esc 退出。缩放改的是
+SVG 的固有尺寸而不是 CSS `transform`,所以放到多大都是矢量清晰的 —— 预览与导出物里都一样。
+
+### MDX 原样给你的能力
+
+| 能力 | 实现 | 写法 |
+|---|---|---|
+| GFM(表格 / 任务清单 / 删除线) | `remark-gfm` | 原生 Markdown |
+| Frontmatter(完整 YAML) | `remark-frontmatter` + `remark-mdx-frontmatter` | `--- … ---`,导出为 `frontmatter` |
+| 数学公式 | `remark-math` + `rehype-katex` | `$…$` / `$$…$$`,另有 `<Math tex=…>` 扩展 |
+| 代码高亮 | `rehype-pretty-code`(Shiki) | ```` ```ts ````,双主题跟随明暗 |
+
+<details>
+<summary><b>Frontmatter 字段</b> —— 全部可选,写了才渲染</summary>
+
+<br>
+
+| 字段 | 取值 |
+|---|---|
+| `title` `eyebrow` `subtitle` | Hero 文案 |
+| `author` `org` `copyright` `datetime` `footer` | 落款;`datetime` 为 `yyyy-MM-dd HH:mm:ss` |
+| `palette` | `indigo` `teal` `rose` `amber` `lime` |
+| `mode` | `light` `dark` `auto` —— **初始**主题,工具栏的切换会覆盖并记住 |
+| `density` | `comfortable` `compact` |
+| `toc` | `true` 显示目录 |
+| `hero` | `false` 关闭自动 Hero |
+| `chrome` | `off` 关闭页眉页脚与落款 |
+
+`toc: true` 渲染的是右侧固定目录,并且在**视口宽度小于 1700px 时隐藏**,以免压住正文 ——
+所以在常见的笔记本屏幕上你是看不到它的。
+
+`datetime` 从不自动生成。落款显示的就是 frontmatter 里写的内容,预览与导出一致。只有版权年份
+`© <年份>` 取自当前日期。
+
+</details>
+
+<details>
+<summary><b>本地化文档变体</b> —— 一个导航条目,两种语言</summary>
+
+<br>
+
+把 locale 直接放在扩展名之前,给同级文件命名:
+
+```text
+guide.mdx          # 基础兜底
+guide.zh-CN.mdx    # 简体中文变体
+guide.en-US.mdx    # 英文变体
 ```
 
-## 用法
+当前界面语言先选精确变体,再回落到无后缀的基础文档。导航里显示的是一个逻辑条目 `guide.mdx`,
+而不是每个物理文件一条。带 locale 的 `?doc=` 地址也接受,并在该文件族有匹配变体或基础兜底时
+归一到当前语言;相对 Markdown 链接走同一套按族路由的逻辑。
 
-```bash
-mdxv demo              # 打开随包内置的组件总览示例(覆盖全部组件与参数)
-mdxv doc.mdx           # 以文件所在目录为根,默认打开该文件(改文件自动热更新)
-mdxv ./docs            # 以该目录为根,默认打开首篇(优先 README/index)
-mdxv doc.mdx --port 5000 --host --no-open
-mdxv doc.mdx --lang zh-CN
-mdxv --check doc.mdx   # 只校验能否编译,不起服务:退出码 0 全通过 / 1 有文档失败 / 2 无法执行校验
-mdxv --check ./docs    # 校验目录下每篇 .md/.mdx,逐条报告
-mdxx doc.mdx           # 导出 doc.html(自包含、零外链、双击即开)
-mdxx doc.mdx out.html  # 指定输出路径
-mdxx doc.mdx --lang en-US # 指定导出页面的初始界面语言
-mdxv doc.mdx --font-body "霞鹜文楷"   # 临时换正文字体(见下「自定义字体」)
-```
+只有 `.zh-CN` 和 `.en-US` 这两个精确后缀是特殊的,其余都是普通文件名。`mdxx` 始终是物理文件
+导出器 —— 你传哪个文件它导哪个,从不替你挑选或打包同族文件。
 
-`mdxv` 的行为是**统一**的:无论给文件还是目录,都以一个根目录运作——给文件则根为其所在目录、
-默认打开该文件;给目录则根为该目录、默认打开首篇。当根目录下有多篇 `.md`/`.mdx` 时显示左侧
-导航并支持相对链接互跳;只有一篇时不显示导航。想快速看全部组件长什么样,直接 `mdxv demo`。
+</details>
 
-把文档交给别人之前,先跑 `mdxv --check`。它是**编译**校验,所以通过意味着这篇文档**打得开**,
-不意味着它是对的:未定义组件、非法属性值、畸形数学都检不出(这些能加载但渲染不对),任何顶层
-ESM 语句或 `{…}` 表达式在模块求值 / 渲染期失败也检不出(这些会让文档根本加载不出来)。这些只是
-例子,不是清单。围栏代码块里的 `import` 是纯文本,所以写文档讲 JavaScript 完全不受影响。
+## 配置
 
-浏览器界面支持简体中文和英文，初始语言跟随浏览器；CLI 依次读取 `--lang`、`MDXV_LANG`、
-系统 Locale。工具栏的语言按钮与 `自动 → 浅色 → 深色` 三态主题按钮会把手动选择保存到
-LocalStorage；主题处于自动模式时，会继续响应操作系统配色变化。
+### 字体
 
-## 自定义字体
-
-想长期用自己电脑上的某款字体,设一次就行——配置文件(连同目录)会在第一次运行时自动创建:
+把你自己的字体设一次,所有文档都用它。配置文件(连同目录)在首次运行时创建:
 
 ```bash
 mdxv config set font.body "霞鹜文楷"
 mdxv config set font.mono "Maple Mono, monospace"   # 逗号分隔可给多个字体名
 ```
 
-写入的是用户级配置 `~/.config/mdxv/config.json`(认 `$XDG_CONFIG_HOME`)。你也可以直接手写这个
-文件,可以带注释和尾逗号:
+写入的是 `~/.config/mdxv/config.json`(`$XDG_CONFIG_HOME` 为绝对路径时以它为准)。手写这个文件
+同样可以 —— 容忍注释与尾逗号:
 
 ```jsonc
 {
   "font": {
-    "body": "霞鹜文楷",              // 正文
-    "head": "思源宋体",              // 标题
+    "body": "霞鹜文楷",                  // 正文
+    "head": "思源宋体",                  // 标题
     "mono": ["Maple Mono", "monospace"], // 代码;也可以给一个数组
-    // "sans": "..."                 // 界面/工具栏
+    // "sans": "..."                     // 界面/工具栏
   },
 }
 ```
 
-**取值优先级恒为 `CLI 参数 > 用户配置 > 内置默认`**:
+取值优先级是固定的,对这一项、以及这个文件将来承载的每一项都成立:
+
+**CLI 参数 → 用户配置 → 内置默认**
 
 ```bash
-mdxv doc.mdx --font-body "Zapfino"   # 本次覆盖配置文件里的 body
+mdxv doc.mdx --font-body "Zapfino"   # 只作用于本次运行
 ```
 
-四件需要知道的事:
+<details>
+<summary><b>四件需要知道的事</b></summary>
 
-- **`config set` 从不替你猜。** 它只改自己那一格,你的其它设置与它不认识的字段都原样保留。
-  已有文件读不懂时(不是合法 JSON、顶层不是对象),它拒绝写入并告诉你,而不是覆盖掉读不懂的
-  内容。重写带注释的文件确实会丢注释,这一点它也会说一声。
-- **是前置,不是替换。** 你的字体排在内置字体链**之前**,缺字形时自动往后落。所以拉丁字体
-  (比如 Zapfino)只会接管拉丁与数字,中文仍走内嵌 Source Serif 4 与系统宋体兜底——不用你手写
-  一整条 fallback 链。
-- **`mdxv` 与 `mdxx` 都吃这份配置**,预览看到的字体就是导出物里的字体。但导出**只写字体名、
-  不嵌字体文件**:产物仍然零外链,而收件人没装这款字体时会按兜底链回退。要让别人看到完全一样
-  的字形,得内嵌字体文件(涉及授权与体积,目前不支持)。
-- **配置坏了不会阻断预览。** 文件不存在是正常情况;读不到、不是合法 JSON、字段类型不对、字体名
-  非法,都只在 stderr 打一行 `警告:` 然后回退内置默认。字体名只允许字母、数字、空格与
-  `. _ + -`;一条里只要有一个非法名,**整条**回退(不会部分生效)。
+<br>
 
-## 本地化文档变体
+- **是前置,不是替换。** 你的字体排在内置字体链**之前**,缺字形时自动往后落。拉丁字体只会接管
+  拉丁与数字,中文仍走内嵌 Source Serif 4 与系统宋体兜底 —— 不用你手写一整条 fallback 链。
+- **`config set` 从不替你猜。** 它只合并,你的其它设置与它不认识的字段都原样保留。已有文件读不懂
+  时(不是合法 JSON、顶层不是对象),它拒绝写入并告诉你,而不是覆盖掉读不懂的内容。重写带注释的
+  文件确实会丢注释,这一点它也会说一声。
+- **两个命令都吃这份配置**,预览看到的字体就是导出物里的字体。但导出**只写字体名、不嵌字体
+  文件**:产物仍然零外链,收件人没装这款字体时按兜底链回退。要让所有人看到完全一样的字形,
+  得内嵌字体文件 —— 涉及授权与体积,目前不支持。
+- **配置坏了不会阻断运行。** 文件不存在是正常情况;读不到、不是合法 JSON、字段类型不对、字体名
+  非法,都只在 stderr 打一行 `警告:` 然后回退内置默认。字体名只允许字母、数字、空格与 `. _ + -`;
+  一条里只要有一个非法名,**整条**回退,而不是部分生效。
 
-目录预览可将一个无后缀文档与可选的简体中文、英文变体归为同一文档族。把 locale 放在扩展名之前：
+</details>
 
-```text
-guide.mdx          # 无后缀基础回退文件
-guide.zh-CN.mdx    # 简体中文变体
-guide.en-US.mdx       # 英文变体
+### 界面语言与主题
+
+浏览器界面支持简体中文与英文,初始跟随浏览器;CLI 侧依次看 `--lang`、`MDXV_LANG`、系统 Locale。
+工具栏的语言控件与「自动 → 浅色 → 深色」主题控件会把手动选择记在 LocalStorage;处于「自动」时,
+页面持续跟随操作系统的明暗变化。
+
+## 开发
+
+需要 **Node ≥ 20**。CLI 侧是纯 `.mjs`,Node 直接执行,没有构建步骤;浏览器应用是 `.tsx`,由 Vite
+转译,没有独立的 `tsc` 步骤。
+
+```bash
+make install       # npm install
+make link          # 可选:全局注册 mdxv / mdxx
+make               # 列出全部命令
 ```
 
-当前界面语言优先选择精确 locale 变体，缺失时才回退到无后缀基础文件。导航只显示一个逻辑上的
-`guide.mdx`，不会为每个物理变体重复显示。直接打开本地化的 `?doc=` URL 仍然有效；当同族存在
-当前语言或基础回退文件时，预览会规范化为该物理文件。Markdown 相对链接也按同一文档族规则本地化。
-只有精确的 `.zh-CN` 和 `.en-US` 后缀有此语义，其他带点文件名仍是普通文件名。`mdxx <file>` 始终只导出
-传入的物理文件，不会选择或打包同级变体。
+```bash
+make view FILE=doc.mdx ARGS="--port 5000"
+make export FILE=doc.mdx OUT=out.html
+make check-mdx FILE=./docs
+```
 
-## 与官方 MDX 的关系
+<details>
+<summary><b>仓库结构</b></summary>
 
-底座是官方参考实现 `@mdx-js/rollup`(MDX v3),所以 **CommonMark + JSX + `{}` 表达式 + ESM `import`/`export`** 全部按官方标准解析。官方推荐的扩展也都按原版接上:
-
-| 能力 | 实现 | 写法 |
-|---|---|---|
-| GFM(表格/任务清单/删除线) | `remark-gfm` | 原生 Markdown |
-| Frontmatter(完整 YAML) | `remark-frontmatter` + `remark-mdx-frontmatter` | `--- ... ---`,并导出 `frontmatter` |
-| 数学 | `remark-math` + `rehype-katex` | 官方 `$...$` / `$$...$$`(另有 `<Math tex=…>` 扩展) |
-| 代码高亮 | `rehype-pretty-code`(Shiki) | ```` ```ts ```` 双主题随明暗 |
-
-在此之上扩展自己的组件(见下)。
-
-## 自定义组件
-
-通过 `MDXProvider` 注入,作者写 `<Callout>` 等**无需 import**:
-
-`Hero` `Section` `Callout` `Card` `Columns` `Toggle` `Steps`/`Step` `Stats`/`Stat`
-`Fields`/`Field` `Scenario`/`When`/`And`/`Then` `Grid`/`Item`(可筛选) `Badge` `Figure`
-`Math` `Code` `Footer` `Colophon`。样式只用语义参数(`tone`/`ratio`/`status`),不写颜色值。
-
-**扩展新组件(OCP)**:在 `src/app/components/blocks.tsx` 写一个 React 组件,在
-`src/app/mdx-components.tsx` 的映射表加一行即可,核心渲染管线无需改动。
-
-## 图(Diagram)
-
-用 fenced code block 承载,围栏语言分三车道:
-
-| 围栏 | 引擎 | 运行时 |
-|---|---|---|
-| `dot` / `graphviz` | 构建期 Graphviz(wasm) → 静态 SVG | 零运行时 |
-| `mermaid` | 客户端渲染,主题跟随明暗 | 用到才载入 |
-| `svg` | 原样内联 | 零运行时 |
-
-每张图悬停会出现放大按钮,点击进入**全屏预览**:光标锚定滚轮缩放、拖拽平移、缩放/适配/关闭
-工具栏,Esc 或点遮罩退出。缩放改的是 SVG 固有尺寸而非 CSS transform,任意倍率都保持矢量清晰。
-`mdxv` 预览与 `mdxx` 导出产物中都可用。
-
-## Frontmatter 字段
-
-所有字段均为可选,提供才渲染。
-
-`title` `eyebrow` `subtitle` `author` `org` `copyright` `datetime`（`yyyy-MM-dd HH:mm:ss`）`footer`
-`palette`(indigo/teal/rose/amber/lime) `mode`(light/dark/auto —— 只是**初始**主题,工具栏按钮
-可覆盖并持久化) `density`(comfortable/compact) `toc`(设 `true` 才显示)
-`hero`(false 关自动 Hero) `chrome`(off 关头尾+落款)。
-
-`toc: true` 渲染右侧固定目录,但它在**视口窄于 1700px 时会隐藏**以免压住正文——普通笔记本屏幕上
-看不到是正常的。
-
-`datetime` 不会自动生成:落款显示的就是 frontmatter 里写的值,预览与导出都一样。只有版权年份
-（`© <年份>`）取自当前日期。
-
-## 目录结构
+<br>
 
 ```
-bin/          mdxv.mjs(预览)· mdxx.mjs(导出)
+bin/          mdxv.mjs(预览) · mdxx.mjs(导出)
 src/
-  cli/        入参解析 · Vite 配置 · 虚拟模块插件 · CLI 语言判定 ·
-              文档语言变体 · 用户级配置(字体) · 终端输出
+  cli/        入参解析 · Vite 配置 · 虚拟模块插件 · CLI 语言 ·
+              本地化文档族 · 用户级配置(字体) · 终端输出
   mdx/        编译插件清单 · 图三车道 rehype 插件
-  i18n/       支持的 locale · 产品文案目录(只放产品字符串)
+  i18n/       支持的 locale · 产品文案目录(只放产品串)
   app/        React 应用:Layout · 组件库 · theme.css ·
               MDXProvider 映射 · 偏好(语言 / 主题)
-demo/         index.mdx · index.zh-CN.mdx —— 随包组件总览示例
+demo/         index.mdx · index.zh-CN.mdx —— 随包组件总览
 examples/     demo.mdx · guide/intro.md
-test/         node --test 测试(单元 / 集成 / 导出冒烟)
+test/         node --test 测试集(单元 / 集成 / 导出冒烟)
 e2e/          Playwright spec + fixtures
 ```
 
-## 架构要点
+**预览**以编程方式起 Vite dev server:单篇经虚拟模块 `virtual:mdx-target` 加载;目录模式扫描
+`.md`/`.mdx`、提供 `/__mdxv/tree`,前端按 `?doc=` 加载并路由相对链接。
 
-- **view**:`mdxv` 程序化启动 Vite dev server。单篇经虚拟模块 `virtual:mdx-target`
-  加载;目录模式扫描 `.md`/`.mdx` 提供 `/__mdxv/tree`,前端按 `?doc=` 加载并路由相对链接。
-- **build**:`mdxx` 走 `vite build` + `vite-plugin-singlefile`,资源(含 KaTeX 字体、
-  用到的 Mermaid 运行时)全部 base64 内联,产出零外链单文件 HTML。
+**导出**跑 `vite build` + `vite-plugin-singlefile`,把所有资源 —— 含 KaTeX 字体与用到的 Mermaid
+运行时 —— 全部内联进一个无任何外部引用的 HTML。
 
-## 测试
+</details>
 
-`test/` 用 Node 内置 `node --test` —— **零第三方测试依赖**;界面行为放在 `e2e/`,由 Playwright
-驱动(唯一的 devDependency)。
+<details>
+<summary><b>测试</b> —— 零第三方测试依赖</summary>
+
+<br>
+
+`test/` 用 Node 内置的 `node --test`。浏览器行为放在 `e2e/`,由 Playwright 驱动 —— 那是唯一的
+devDependency。
 
 ```bash
-make test          # 全部 node 测试(单元 + 集成 + 导出冒烟,不含 e2e)
-make test-unit     # 快:纯逻辑 + MDX 编译管线(无 vite 构建)
-make test-cli      # CLI 子进程契约,不跑 vite 构建
-make test-build    # 需要真实 vite 构建的(最慢)
-make test-e2e      # Playwright 端到端(首次需 npx playwright install)
+make test          # 全部 node 测试(单元 + 集成 + 导出冒烟;不含 e2e)
+make test-unit     # L1:进程内,零子进程(亚秒级)
+make test-cli      # L2:CLI 子进程契约,不跑 vite 构建
+make test-build    # L3:需要真实 vite 构建的(最慢)
+make test-e2e      # Playwright(首次需 npx playwright install)
 ```
 
-- **单元** —— 入参解析、文档语言变体、locale 与文案取词、CLI 语言优先级、终端输出格式化、
-  本地文档链接解析;fixture 在临时目录现建现清。
-- **集成** —— 用官方 `@mdx-js/mdx` 的 `compile()` 跑 `mdxOptions()`,断言 frontmatter / GFM / 数学 / 高亮 / 图三车道均生效。
-- **导出冒烟** —— 跑真实 `mdxx`,断言产物零外链、base64 内联。
-- **e2e** —— 语言 / 主题偏好及其持久化、本地化文档变体、空态与错误态。
+- **单元** —— 入参解析、本地化文档族、locale 与取词、CLI 语言优先级、用户配置、终端输出格式化。
+  fixture 在临时目录现建现清。
+- **集成** —— 把 `mdxOptions()` 喂给官方 `@mdx-js/mdx` 的 `compile()`,断言 frontmatter、GFM、
+  数学、高亮与三条图车道都真的生效。
+- **导出冒烟** —— 跑真实的 `mdxx`,断言产物零外链且资源已内联。
+- **e2e** —— 语言与主题偏好及其持久化、本地化文档变体、空状态与错误态。
 
-## 环境要求
+</details>
 
-Node ≥ 20(ESM)。CLI 侧为纯 `.mjs`,Node 直接执行,无编译步骤;浏览器应用为 `.tsx`,由
-Vite 转译,无独立 tsc 步骤。
+## 参与贡献
 
-## 如何贡献
+本项目完全由 **VibeCoding** 开发:发布的代码由 AI Agent 依据已提交的 spec 编写,经人工审查,
+使用 [ExcaliVibe](https://github.com/yanxuan-lc/excalivibe) 能力套件。每个非平凡改动都连同它的
+`openspec/changes/<id>/` 留痕一起落地,所以「提了什么、怎么决策、过了哪些门」全都可复查。
 
-本项目的开发**完全基于 VibeCoding**：所有落地代码都由 AI Agent 依据一份已提交的 spec 写成，经人类
-审查，跑在 [ExcaliVibe](https://github.com/yanxuan-lc/excalivibe) 能力套件上。每个非平凡变更都连同
-它的 `openspec/changes/<id>/` 留痕一起落地，因此「需求是什么、决策是什么、哪些门禁过了」始终可审。
+你不需要跑 Agent 才能参与 —— **一个精确的 issue 就是一等公民级的贡献**,因为它正是这条流水线
+的起点。[CONTRIBUTING.md](./CONTRIBUTING.md) 讲了环境搭建、开发循环、项目红线(官方 MDX 兼容、
+导出零外链)以及提 PR 前该做的验证。
 
-不跑 Agent 也能参与——一个说清楚的 issue 就是一等贡献，因为流程正是从这份 brief 开始的。
-[CONTRIBUTING.zh-CN.md](./CONTRIBUTING.zh-CN.md) 讲清了环境准备、研发闭环、项目红线（官方 MDX
-兼容、零外链导出）以及提 PR 前应有的验证。
+## 更新日志
 
-## 变更日志
-
-[CHANGELOG.md](./CHANGELOG.md) 是发布索引，每条都链到对应的 GitHub Release 看完整说明。**会改变
-已有文档渲染结果的发布会明确写出来**——0.3.0 的「what you may notice」就是这类提示的样子。
-（该文件与 Release 说明只用英文一份：详细叙述在 Release 里，再维护一份中文副本必然漂移，
-而本项目刚因为文档漂移吃过教训。）
+[CHANGELOG.md](./CHANGELOG.md) 是每次发布的索引,每条都链到对应的 GitHub Release 看完整叙述。
+会改变已有文档渲染结果的发布会明确写出来 —— 0.3.0 的「what you may notice」就是这类提示的样子。
 
 ## 许可证
 

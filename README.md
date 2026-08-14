@@ -1,108 +1,205 @@
+<div align="center">
+
 # mdx-viewer
+
+**Open an `.mdx` file the way you open a `.md` file.**
+
+No site to scaffold, no framework to learn. One command previews it in a browser,
+one command turns it into a single HTML file you can email.
+
+[![npm](https://img.shields.io/npm/v/mdx-viewer?color=cb3837&logo=npm&logoColor=white)](https://www.npmjs.com/package/mdx-viewer)
+[![node](https://img.shields.io/node/v/mdx-viewer?color=339933&logo=node.js&logoColor=white)](https://nodejs.org)
+[![MDX](https://img.shields.io/badge/MDX-v3%20official-1B1F24?logo=mdx&logoColor=white)](https://mdxjs.com)
+[![license](https://img.shields.io/npm/l/mdx-viewer?color=blue)](./LICENSE)
 
 **English** · [简体中文](./README.zh-CN.md)
 
-A local MDX renderer. `mdxv <file|dir>` opens a browser preview; `mdxx <file>` exports a
-self-contained, offline HTML file. Built on the official `@mdx-js` + Vite + React —
-**100% compatible with official MDX syntax**, with extensible components.
+</div>
 
-## Positioning & Goals
+---
 
-- **Read MDX with one command.** Treat `.mdx` / `.md` as documents you just open — no need to
-  scaffold a Next.js / Docusaurus site first.
-- **Official standard is the hard line.** The foundation is the official reference compiler
-  `@mdx-js/rollup` (MDX v3), so CommonMark + JSX + `{}` expressions + ESM `import`/`export`
-  are all parsed to the official spec. The officially recommended extensions (GFM / frontmatter /
-  math / syntax highlighting) are wired in as-is. Never break official compatibility when touching
-  the compile pipeline.
-- **One template, semantic components.** Ships a CSS-variable-driven HTML+CSS template and
-  semantic components (Hero / Callout / Steps…); authors write `<Callout>` with no import. To
-  extend, add one component plus one mapping line.
-- **Export means offline.** `mdxx` produces a single HTML file with zero external links — KaTeX
-  fonts and the Mermaid runtime (when used) are all base64-inlined, so it opens on a double-click
-  and travels well as an email attachment.
-
-## Install
-
-### From npm (recommended)
+## Quick start
 
 ```bash
-npm install -g mdx-viewer   # global: provides mdxv (preview) & mdxx (export)
-mdxv demo                   # open the bundled component gallery
+npm install -g mdx-viewer   # provides two commands: mdxv, mdxx
+mdxv demo                   # see every component, live, in your browser
 ```
-
-Or run once without installing:
 
 ```bash
-npx -p mdx-viewer mdxv doc.mdx    # preview
-npx -p mdx-viewer mdxx doc.mdx    # export self-contained HTML
+mdxv doc.mdx      # preview, hot-reloads as you edit
+mdxv ./docs       # preview a whole directory, with navigation
+mdxx doc.mdx      # export doc.html — self-contained, opens offline
 ```
 
-### From source
+Prefer not to install? `npx -p mdx-viewer mdxv doc.mdx`
+
+## Why this exists
+
+|  | |
+|---|---|
+| 📄 **Documents, not sites** | `.mdx` and `.md` are things you *open*. No Next.js or Docusaurus scaffold first. |
+| 🎯 **Official MDX, not a dialect** | Built on `@mdx-js/rollup` (MDX v3), the reference compiler. CommonMark + JSX + `{}` expressions + ESM `import`/`export` parse to spec. |
+| 🎨 **A template that already looks finished** | Semantic components (`<Callout>`, `<Steps>`, `<Hero>`…) need no import, and a CSS-variable theme with light/dark carries them. |
+| 📦 **Export means offline** | One HTML file, **zero external links** — KaTeX fonts and the Mermaid runtime are base64-inlined. Double-click it on a plane. |
+
+## Write this
+
+````mdx
+---
+title: Deploy runbook
+palette: teal
+toc: true
+---
+
+<Callout tone="warn">Drain the queue before restarting.</Callout>
+
+<Steps>
+  <Step title="Scale down">Set replicas to 0 and wait for the drain.</Step>
+  <Step title="Migrate">Run `bin/migrate --safe`.</Step>
+</Steps>
+
+```mermaid
+graph LR
+  A[queue] --> B[worker] --> C[(db)]
+```
+
+The rate limit is $r = \frac{n}{t}$ requests per second.
+````
+
+Run `mdxv runbook.mdx`. No imports, no config, no build.
+
+## The two commands
+
+| Command | Does | Notes |
+|---|---|---|
+| `mdxv <file>` | Preview, rooted at the file's directory | Hot-reloads on save |
+| `mdxv <dir>` | Preview the directory, opening the first doc | README/index preferred; left-hand nav appears |
+| `mdxv demo` | Open the bundled component gallery | Every component and prop, live |
+| `mdxv --check <file\|dir>` | Compile-check only — no server, no artifacts | Exit `0` pass / `1` a document failed / `2` could not check |
+| `mdxv config set <key> <value>` | Write the user-level config | Creates it on first use |
+| `mdxx <file> [out.html]` | Export one self-contained HTML | Zero external links |
+
+Common flags: `--port <n>` `--host` `--no-open` `--lang <zh-CN\|en-US>` `--font-<role> <families>`.
+Run `mdxv --help` for the full page, in your language.
+
+**`mdxv` treats files and directories uniformly.** Both resolve to a single root plus a default
+document — a file roots at its parent, a directory roots at itself. Multiple docs under the root
+bring up navigation and make relative links cross-navigate; a single doc shows none.
+
+### Check before you hand over a link
+
+`mdxv` starting up does **not** mean your document compiles — MDX compiles lazily, when the browser
+imports it. So a broken document still gets a green banner and a URL that 500s for whoever opens it.
 
 ```bash
-make install       # install deps (= npm install)
-make link          # optional: register mdxv / mdxx globally
+mdxv --check ./docs    # one report line per document; report on stdout, errors on stderr
 ```
 
-> The single entry point is `make`: run `make` to list every command. You can also bypass the
-> Makefile and use `npm` / `mdxv` / `mdxx` directly.
+> [!IMPORTANT]
+> A pass means the document **will open**, not that it is correct. It does not catch an undefined
+> component, an invalid prop value, or malformed math — those load and render wrongly. Nor does it
+> catch a top-level ESM statement or `{…}` expression that throws at evaluation or render time,
+> which stops the document loading at all. These are examples, not an exhaustive list. An `import`
+> inside a fenced code block is inert text, so documents *about* JavaScript are unaffected.
 
-Get going with make:
+## Authoring
 
-```bash
-make demo                             # open the built-in component gallery
-make view FILE=doc.mdx                # preview (FILE may be a file or a directory)
-make view FILE=./docs ARGS="--port 5000"
-make export FILE=doc.mdx OUT=out.html # export a self-contained HTML
+### Components, no import needed
+
+Injected through `MDXProvider`, so `<Callout>` just works:
+
+`Hero` `Section` `Callout` `Card` `Columns` `Toggle` `Steps`/`Step` `Stats`/`Stat` `Fields`/`Field`
+`Scenario`/`When`/`And`/`Then` `Grid`/`Item` (filterable) `Badge` `Figure` `Math` `Code` `Footer`
+`Colophon`
+
+Props are semantic only — `tone`, `ratio`, `status` — never color values, so the theme stays in one
+place. **To add one:** write a React component in `src/app/components/blocks.tsx`, add one row to
+the map in `src/app/mdx-components.tsx`. The render pipeline is untouched.
+
+### Diagrams, in three lanes
+
+A fenced code block carries the diagram; the fence language picks the engine:
+
+| Fence | Engine | Runtime cost |
+|---|---|---|
+| `dot` / `graphviz` | Graphviz (wasm) at build time → static SVG | none |
+| `mermaid` | Rendered client-side, follows light/dark | loaded only when used |
+| `svg` | Inlined as-is | none |
+
+Every diagram gets a hover button that opens a fullscreen viewer: cursor-anchored wheel zoom,
+drag-to-pan, and Esc to leave. Zooming changes the SVG's intrinsic size rather than applying a CSS
+transform, so it stays vector-crisp at any magnification — in the preview and in the export alike.
+
+### What MDX gives you, unmodified
+
+| Capability | Implementation | Syntax |
+|---|---|---|
+| GFM (tables / task lists / strikethrough) | `remark-gfm` | native Markdown |
+| Frontmatter (full YAML) | `remark-frontmatter` + `remark-mdx-frontmatter` | `--- … ---`, exported as `frontmatter` |
+| Math | `remark-math` + `rehype-katex` | `$…$` / `$$…$$`, plus a `<Math tex=…>` extension |
+| Syntax highlighting | `rehype-pretty-code` (Shiki) | ```` ```ts ````, dual theme, follows light/dark |
+
+<details>
+<summary><b>Frontmatter fields</b> — all optional, each renders only when present</summary>
+
+<br>
+
+| Field | Values |
+|---|---|
+| `title` `eyebrow` `subtitle` | Hero text |
+| `author` `org` `copyright` `datetime` `footer` | Colophon; `datetime` is `yyyy-MM-dd HH:mm:ss` |
+| `palette` | `indigo` `teal` `rose` `amber` `lime` |
+| `mode` | `light` `dark` `auto` — the *initial* theme; the toolbar overrides and persists it |
+| `density` | `comfortable` `compact` |
+| `toc` | `true` shows a table of contents |
+| `hero` | `false` disables the automatic Hero |
+| `chrome` | `off` disables header, footer and colophon |
+
+`toc: true` renders a fixed right-hand table of contents that is **hidden below a 1700px-wide
+viewport**, so it never overlaps the prose — on a typical laptop you will not see it.
+
+`datetime` is never generated for you. The colophon shows exactly what frontmatter says, in preview
+and export alike. Only the copyright year `© <year>` comes from the current date.
+
+</details>
+
+<details>
+<summary><b>Localized document variants</b> — one nav entry, two languages</summary>
+
+<br>
+
+Name sibling files with the locale immediately before the extension:
+
+```text
+guide.mdx          # base fallback
+guide.zh-CN.mdx    # Simplified Chinese variant
+guide.en-US.mdx    # English variant
 ```
 
-## Usage
+The active UI language picks its exact variant first, then the unsuffixed base. Navigation shows one
+logical `guide.mdx` entry rather than one per physical file. A localized `?doc=` URL is accepted and
+normalized to the active language when that family has a match or a base fallback, and relative
+Markdown links use the same family-aware routing.
 
-```bash
-mdxv demo              # open the bundled component gallery (covers every component + param)
-mdxv doc.mdx           # root at the file's directory, open that file (hot-reloads on edit)
-mdxv ./docs            # root at the directory, open the first doc (README/index preferred)
-mdxv doc.mdx --port 5000 --host --no-open
-mdxv doc.mdx --lang zh-CN
-mdxv --check doc.mdx   # compile-check only, no server: exit 0 all passed / 1 a document failed / 2 could not check
-mdxv --check ./docs    # check every .md/.mdx under the directory, one report line each
-mdxx doc.mdx           # export doc.html (self-contained, zero external links, double-click to open)
-mdxx doc.mdx out.html  # specify the output path
-mdxx doc.mdx --lang en-US # choose the exported page's initial UI language
-mdxv doc.mdx --font-body "Iowan Old Style"  # swap the body font for this run (see Custom fonts)
-```
+Only the exact `.zh-CN` and `.en-US` suffixes are special; anything else is an ordinary filename.
+`mdxx` stays a physical-file exporter — it exports the file you pass and never bundles siblings.
 
-`mdxv` behaves **uniformly**: whether you pass a file or a directory, it operates on a single root
-— a file roots at its parent directory and opens that file; a directory roots at itself and opens
-the first doc. When the root holds multiple `.md`/`.mdx` files, a left-hand nav appears and relative
-links cross-navigate; with a single doc, no nav is shown. To quickly see what every component looks
-like, just run `mdxv demo`.
+</details>
 
-`mdxv --check` is the gate to run before handing a document to someone — it is a compile check, so
-a pass means the document **will open**, not that it is correct. It does not detect an undefined
-component, an invalid prop value, or malformed math (all of which load and render wrongly), nor any
-top-level ESM statement or `{…}` expression that fails at module evaluation or render time (which
-stops the document loading at all). Those are examples, not an exhaustive list. An `import` inside a
-fenced code block is inert text, so documents that document JavaScript are unaffected.
+## Configuration
 
-The browser UI supports Simplified Chinese and English. Its initial language follows the browser;
-the CLI uses `--lang`, then `MDXV_LANG`, then the system Locale. The toolbar language control and
-the `auto → light → dark` theme control save manual choices in LocalStorage. In `auto`, the page
-continues to follow changes to the operating-system color scheme.
+### Fonts
 
-## Custom fonts
-
-To use a font installed on your machine across every document, set it once — the command creates
-the config file, and its directory, the first time you run it:
+Set a font you own once, and every document uses it. The command creates the config file, and its
+directory, on first use:
 
 ```bash
 mdxv config set font.body "Iowan Old Style"
 mdxv config set font.mono "Maple Mono, monospace"   # a comma names several families
 ```
 
-That writes the user-level config at `~/.config/mdxv/config.json` (`$XDG_CONFIG_HOME` is honored).
-You can equally edit the file by hand — comments and trailing commas are fine:
+That writes `~/.config/mdxv/config.json` (`$XDG_CONFIG_HOME` wins when absolute). Hand-editing is
+equally fine — comments and trailing commas are tolerated:
 
 ```jsonc
 {
@@ -115,109 +212,65 @@ You can equally edit the file by hand — comments and trailing commas are fine:
 }
 ```
 
-Resolution order is always **CLI option > user config > built-in default**:
+Resolution order is fixed, for this and every setting the file will ever carry:
+
+**CLI option → user config → built-in default**
 
 ```bash
-mdxv doc.mdx --font-body "Zapfino"   # overrides the config's body for this run
+mdxv doc.mdx --font-body "Zapfino"   # this run only
 ```
 
-Four things worth knowing:
+<details>
+<summary><b>Four things worth knowing</b></summary>
 
-- **`config set` never guesses.** It merges into what is already there, keeping your other settings
-  and any keys it does not know. If the existing file cannot be understood — invalid JSON, a
-  non-object at the top level — it refuses to write and tells you, rather than overwriting content
-  it cannot read. Rewriting a commented file does drop the comments, and it says so.
-- **It prepends, it does not replace.** Your font goes *ahead* of the built-in chain, so missing
-  glyphs fall through to the next family. A Latin-only font therefore takes over Latin and digits
-  while CJK still falls back to the embedded Source Serif 4 and the system serif — you never have to
-  spell out a whole fallback chain yourself.
-- **Both `mdxv` and `mdxx` honor the config**, so the preview shows the fonts the export will use.
-  But the export **records font names only and embeds no font files**: the artifact stays free of
-  external links, and a recipient without that font falls back down the chain. Identical glyphs for
-  everyone would require embedding the font file (licensing and size implications; not supported).
-- **A broken config never blocks a run.** A missing file is the normal case; an unreadable file,
-  invalid JSON, a wrong field type, or an illegal font name each print one `Warning:` line to stderr
-  and fall back to the built-in defaults. Font names allow only letters, digits, spaces and
-  `. _ + -`; if any name in an entry is illegal the **whole** entry falls back rather than partly
-  applying.
+<br>
 
-## Localized document variants
+- **It prepends, it does not replace.** Your font goes *ahead* of the built-in chain, so a missing
+  glyph falls through. A Latin-only face takes over Latin and digits while CJK still falls back to
+  the embedded Source Serif 4 and the system serif — you never write a fallback chain yourself.
+- **`config set` never guesses.** It merges, keeping your other settings and any key it does not
+  know. If the existing file cannot be understood — invalid JSON, a non-object at the top level — it
+  refuses to write and says so rather than overwriting what it cannot read. Rewriting a commented
+  file does drop the comments, and it tells you that too.
+- **Both commands honor it**, so the preview shows the fonts the export will use. But the export
+  records font **names** only and embeds no font files: the artifact stays free of external links,
+  and a recipient without the font falls back down the chain. Identical glyphs for everyone would
+  mean embedding the file — licensing and size implications, not supported.
+- **A broken config never blocks a run.** A missing file is the normal case. An unreadable file,
+  invalid JSON, a wrong field type or an illegal font name each print one `Warning:` line to stderr
+  and fall back to the defaults. Font names allow only letters, digits, spaces and `. _ + -`; if any
+  name in an entry is illegal the **whole** entry falls back rather than partly applying.
 
-Directory previews can group an unsuffixed document with optional Simplified-Chinese and English
-variants. Name sibling files with the locale immediately before the extension:
+</details>
 
-```text
-guide.mdx          # base fallback
-guide.zh-CN.mdx    # Simplified Chinese variant
-guide.en-US.mdx       # English variant
+### Interface language and theme
+
+The browser UI speaks Simplified Chinese and English, following the browser initially. The CLI uses
+`--lang`, then `MDXV_LANG`, then the system locale. The toolbar's language control and its
+`auto → light → dark` theme control persist manual choices in LocalStorage; in `auto`, the page keeps
+following the operating system.
+
+## Development
+
+Requires **Node ≥ 20**. The CLI is plain `.mjs` that Node runs directly — no build step. The browser
+app is `.tsx`, transpiled by Vite, with no separate `tsc` step.
+
+```bash
+make install       # npm install
+make link          # optional: register mdxv / mdxx globally
+make               # list every command
 ```
 
-The active UI language selects its exact variant first, then the unsuffixed base document. The
-navigation shows one logical `guide.mdx` entry rather than one entry per physical variant. Opening a
-localized `?doc=` URL is accepted and normalized to the active language when that family has a
-matching variant or base fallback; relative Markdown links use the same family-aware routing.
-Names other than the exact `.zh-CN` and `.en-US` suffixes are ordinary filenames. `mdxx <file>` remains
-a physical-file exporter: it exports exactly the file you pass and never selects or bundles siblings.
+```bash
+make view FILE=doc.mdx ARGS="--port 5000"
+make export FILE=doc.mdx OUT=out.html
+make check-mdx FILE=./docs
+```
 
-## Relationship to Official MDX
+<details>
+<summary><b>Repository layout</b></summary>
 
-The foundation is the official reference implementation `@mdx-js/rollup` (MDX v3), so
-**CommonMark + JSX + `{}` expressions + ESM `import`/`export`** are all parsed to the official
-spec. The officially recommended extensions are wired in as-is:
-
-| Capability | Implementation | Syntax |
-|---|---|---|
-| GFM (tables / task lists / strikethrough) | `remark-gfm` | native Markdown |
-| Frontmatter (full YAML) | `remark-frontmatter` + `remark-mdx-frontmatter` | `--- ... ---`, exported as `frontmatter` |
-| Math | `remark-math` + `rehype-katex` | official `$...$` / `$$...$$` (plus a `<Math tex=…>` extension) |
-| Syntax highlighting | `rehype-pretty-code` (Shiki) | ```` ```ts ```` dual theme, follows light/dark |
-
-Extend with your own components on top of this (see below).
-
-## Custom Components
-
-Injected via `MDXProvider`, so authors write `<Callout>` and friends with **no import**:
-
-`Hero` `Section` `Callout` `Card` `Columns` `Toggle` `Steps`/`Step` `Stats`/`Stat`
-`Fields`/`Field` `Scenario`/`When`/`And`/`Then` `Grid`/`Item` (filterable) `Badge` `Figure`
-`Math` `Code` `Footer` `Colophon`. Styling uses only semantic props (`tone`/`ratio`/`status`) —
-no color values.
-
-**Add a new component (OCP):** write a React component in `src/app/components/blocks.tsx` and
-add one row to the mapping table in `src/app/mdx-components.tsx` — the core render pipeline stays
-untouched.
-
-## Diagrams
-
-Carried by fenced code blocks; the fence language routes to one of three lanes:
-
-| Fence | Engine | Runtime |
-|---|---|---|
-| `dot` / `graphviz` | build-time Graphviz (wasm) → static SVG | zero runtime |
-| `mermaid` | client-side render, theme follows light/dark | loaded only when used |
-| `svg` | inlined as-is | zero runtime |
-
-Every diagram gets a hover button that opens a **fullscreen viewer**: cursor-anchored wheel zoom,
-drag-to-pan, a zoom / fit / close toolbar, and Esc or a backdrop click to exit. Zooming scales the
-SVG's intrinsic size rather than applying a CSS transform, so it stays vector-crisp at any
-magnification. Works in both `mdxv` and the `mdxx` export.
-
-## Frontmatter Fields
-
-All fields are optional; each one only renders when provided.
-
-`title` `eyebrow` `subtitle` `author` `org` `copyright` `datetime` (`yyyy-MM-dd HH:mm:ss`) `footer`
-`palette` (indigo/teal/rose/amber/lime) `mode` (light/dark/auto — the *initial* theme; the toolbar
-control overrides it and persists) `density` (comfortable/compact) `toc` (set `true` to show it)
-`hero` (false disables the auto Hero) `chrome` (off disables header/footer + colophon).
-
-`toc: true` renders a fixed right-hand table of contents, which is **hidden below a 1700px-wide
-viewport** so it never overlaps the prose — on a typical laptop screen you will not see it.
-
-`datetime` is never generated for you — the colophon shows exactly what you put in frontmatter, in
-both preview and export. Only the copyright year (`© <year>`) is taken from the current date.
-
-## Directory Structure
+<br>
 
 ```
 bin/          mdxv.mjs (preview) · mdxx.mjs (export)
@@ -234,57 +287,58 @@ test/         node --test suites (unit / integration / export smoke)
 e2e/          Playwright specs + fixtures
 ```
 
-## Architecture Notes
+**Preview** starts the Vite dev server programmatically: a single doc loads through the virtual
+module `virtual:mdx-target`, while directory mode scans for `.md`/`.mdx`, serves `/__mdxv/tree`, and
+lets the frontend load by `?doc=` and route relative links.
 
-- **view**: `mdxv` starts the Vite dev server programmatically. A single doc loads via the virtual
-  module `virtual:mdx-target`; directory mode scans `.md`/`.mdx`, serves `/__mdxv/tree`, and the
-  frontend loads by `?doc=` and routes relative links.
-- **build**: `mdxx` runs `vite build` + `vite-plugin-singlefile` with assets (including KaTeX fonts
-  and the Mermaid runtime when used) all base64-inlined, producing a zero-external-link single HTML.
+**Export** runs `vite build` with `vite-plugin-singlefile`, inlining every asset — KaTeX fonts and
+the Mermaid runtime included — into one HTML file with no external references.
 
-## Testing
+</details>
 
-`test/` uses Node's built-in `node --test` — **zero third-party test dependencies**. Browser
-behaviour lives in `e2e/`, driven by Playwright (the only devDependency).
+<details>
+<summary><b>Testing</b> — zero third-party test dependencies</summary>
+
+<br>
+
+`test/` uses Node's built-in `node --test`. Browser behaviour lives in `e2e/`, driven by Playwright —
+the only devDependency.
 
 ```bash
 make test          # all node tests (unit + integration + export smoke; no e2e)
-make test-unit     # fast: pure logic + MDX compile pipeline (no vite build)
-make test-cli      # CLI subprocess contracts, no vite build
-make test-build    # everything that needs a real vite build (slowest)
-make test-e2e      # Playwright end-to-end (first run: npx playwright install)
+make test-unit     # L1: in-process, zero subprocesses (sub-second)
+make test-cli      # L2: CLI subprocess contracts, no vite build
+make test-build    # L3: everything needing a real vite build (slowest)
+make test-e2e      # Playwright (first run: npx playwright install)
 ```
 
-- **unit** — input resolution, localized-doc families, locale + message lookup, CLI language
-  precedence, terminal output formatting, and local document links. Fixtures built in a temp dir.
-- **integration** — runs `mdxOptions()` through the official `@mdx-js/mdx` `compile()`, asserting frontmatter / GFM / math / highlighting / the three diagram lanes all fire.
-- **export smoke** — runs the real `mdxx` and asserts the output is zero-external-link and base64-inlined.
-- **e2e** — language / theme preferences and their persistence, localized document variants, and
-  empty / error states.
+- **unit** — input resolution, localized-doc families, locale and message lookup, CLI language
+  precedence, user config, terminal output. Fixtures built in a temp dir.
+- **integration** — runs `mdxOptions()` through the official `@mdx-js/mdx` `compile()`, asserting
+  frontmatter, GFM, math, highlighting and all three diagram lanes fire.
+- **export smoke** — runs the real `mdxx` and asserts the output is zero-external-link and inlined.
+- **e2e** — language and theme preferences and their persistence, localized variants, empty states.
 
-## Requirements
-
-Node ≥ 20 (ESM). The CLI side is plain `.mjs`, run directly by Node with no build step; the browser
-app is `.tsx`, transpiled by Vite with no separate tsc step.
+</details>
 
 ## Contributing
 
 This project is developed entirely by **VibeCoding**: shipped code is written by AI agents working
 from a committed spec, under human review, using the
 [ExcaliVibe](https://github.com/yanxuan-lc/excalivibe) capability suite. Every non-trivial change
-lands together with its `openspec/changes/<id>/` trail, so what was asked, what was decided and
-which gates passed all stay reviewable.
+lands with its `openspec/changes/<id>/` trail, so what was asked, what was decided and which gates
+passed all stay reviewable.
 
-You do not need to run an agent to take part — a precise issue is a first-class contribution,
-because it is the brief the pipeline starts from.
-[CONTRIBUTING.md](./CONTRIBUTING.md) covers setup, the development loop, the project's red lines
-(official MDX compatibility, zero-external-link export) and the verification expected before a PR.
+You do not need to run an agent to take part — **a precise issue is a first-class contribution**,
+because it is the brief the pipeline starts from. [CONTRIBUTING.md](./CONTRIBUTING.md) covers setup,
+the development loop, the red lines (official MDX compatibility, zero-external-link export) and the
+verification expected before a PR.
 
 ## Changelog
 
-[CHANGELOG.md](./CHANGELOG.md) indexes every release; each entry links to its GitHub release for
-the full prose. Releases that change how existing documents render say so explicitly — see
-0.3.0's "what you may notice" for the shape those notices take.
+[CHANGELOG.md](./CHANGELOG.md) indexes every release, each entry linking to its GitHub release for
+the full prose. Releases that change how existing documents render say so explicitly — see 0.3.0's
+"what you may notice" for the shape those notices take.
 
 ## License
 

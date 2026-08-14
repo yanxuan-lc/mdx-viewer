@@ -13,7 +13,7 @@ goes to) and the author surface (components, component props, frontmatter fields
 pixels are not a contract: a fix to make invisible text visible necessarily changes them, and
 such changes are called out per release instead.
 
-## [Unreleased]
+## [0.4.0] — 2026-08-14
 
 ### Added
 
@@ -171,6 +171,7 @@ First public release: the MDX renderer, the `mdxv` preview server and the `mdxx`
 self-contained single-file export, plus the semantic component set and the gated publish
 pipeline.
 
+[0.4.0]: https://github.com/yanxuan-lc/mdx-viewer/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/yanxuan-lc/mdx-viewer/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/yanxuan-lc/mdx-viewer/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/yanxuan-lc/mdx-viewer/compare/v0.1.0...v0.2.0

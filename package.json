@@ -1,6 +1,6 @@
 {
   "name": "mdx-viewer",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "Local MDX renderer: `mdxv <file|dir>` previews in the browser, `mdxx <file>` exports a self-contained offline HTML. Built on official @mdx-js + Vite + React — 100% MDX syntax compatible, components extensible.",
   "type": "module",
   "license": "MIT",

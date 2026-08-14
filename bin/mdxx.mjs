@@ -12,7 +12,8 @@ import { viteSingleFile } from "vite-plugin-singlefile";
 import { resolveInput } from "../src/cli/resolve.mjs";
 import { buildConfig } from "../src/cli/vite-config.mjs";
 import { CliArgumentsError, CliOutputError, formatCliError, resolveCliArguments } from "../src/cli/language.mjs";
-import { formatError, formatExportSuccess, formatHelp, isColorEnabled } from "../src/cli/output.mjs";
+import { fontOverridesFromOptions, loadUserConfig } from "../src/cli/user-config.mjs";
+import { formatError, formatExportSuccess, formatHelp, formatWarning, isColorEnabled } from "../src/cli/output.mjs";
 import { t } from "../src/i18n/locale.mjs";
 
 const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
@@ -35,7 +36,11 @@ const cli = cac("mdxx");
 cli
   .command("[input] [output]", t(language.locale, "cli.exportDescription"))
   .option("--lang <locale>", t(language.locale, "cli.optionLanguage"))
-  .action(async (input, output) => {
+  .option("--font-sans <families>", t(language.locale, "cli.optionFont"))
+  .option("--font-head <families>", t(language.locale, "cli.optionFont"))
+  .option("--font-body <families>", t(language.locale, "cli.optionFont"))
+  .option("--font-mono <families>", t(language.locale, "cli.optionFont"))
+  .action(async (input, output, opts) => {
     let inp;
     try {
       inp = resolveInput(input);
@@ -55,6 +60,13 @@ cli
     const outFile = resolve(process.cwd(), output || inp.target.replace(/\.mdx?$/i, ".html"));
     const tmp = mkdtempSync(resolve(tmpdir(), "mdxx-"));
 
+    // 导出同样吃用户配置，`mdxv` 看到的字体就是导出物里的字体（双端一致是硬约束）。
+    // 只写字体**名**、不嵌字体文件：产物仍然零外链，收件人没装这款字体时按 CSS 兜底链回退。
+    const userConfig = loadUserConfig({ overrides: fontOverridesFromOptions(opts) });
+    for (const warning of userConfig.warnings) {
+      console.error(formatWarning({ locale: language.locale, warning, color }));
+    }
+
     try {
       const config = buildConfig({
         mode: "file",
@@ -64,6 +76,7 @@ cli
         initialLocale: language.locale,
         localeSource: language.source,
         outDir: tmp,
+        fontCss: userConfig.css,
         extraPlugins: [viteSingleFile()],
       });
       await build({ ...config, logLevel: "silent" });

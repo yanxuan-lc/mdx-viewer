@@ -51,6 +51,7 @@ const RESOLVE_ALIAS = {
  * @param {"zh-CN"|"en-US"} [o.initialLocale]
  * @param {"argument"|"environment"|"system"|"fallback"} [o.localeSource]
  * @param {string} [o.outDir]   build 输出目录
+ * @param {string} [o.fontCss]  用户级字体配置渲染出的 CSS（见 src/cli/user-config.mjs）
  * @param {import('vite').Plugin[]} [o.extraPlugins]
  */
 export function buildConfig(o) {
@@ -63,7 +64,7 @@ export function buildConfig(o) {
     configFile: false,
     plugins: [
       { enforce: "pre", ...mdx(mdxOptions()) },
-      mdxvPlugin({ mode: o.mode, target: o.target, root: o.root, files: o.files, firstDoc: o.firstDoc, initialLocale: o.initialLocale, localeSource: o.localeSource }),
+      mdxvPlugin({ mode: o.mode, target: o.target, root: o.root, files: o.files, firstDoc: o.firstDoc, initialLocale: o.initialLocale, localeSource: o.localeSource, fontCss: o.fontCss }),
       ...(o.extraPlugins || []),
     ],
     define: {

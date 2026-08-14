@@ -70,6 +70,7 @@ mdxv --check ./docs    # check every .md/.mdx under the directory, one report li
 mdxx doc.mdx           # export doc.html (self-contained, zero external links, double-click to open)
 mdxx doc.mdx out.html  # specify the output path
 mdxx doc.mdx --lang en-US # choose the exported page's initial UI language
+mdxv doc.mdx --font-body "Iowan Old Style"  # swap the body font for this run (see Custom fonts)
 ```
 
 `mdxv` behaves **uniformly**: whether you pass a file or a directory, it operates on a single root
@@ -89,6 +90,56 @@ The browser UI supports Simplified Chinese and English. Its initial language fol
 the CLI uses `--lang`, then `MDXV_LANG`, then the system Locale. The toolbar language control and
 the `auto → light → dark` theme control save manual choices in LocalStorage. In `auto`, the page
 continues to follow changes to the operating-system color scheme.
+
+## Custom fonts
+
+To use a font installed on your machine across every document, set it once — the command creates
+the config file, and its directory, the first time you run it:
+
+```bash
+mdxv config set font.body "Iowan Old Style"
+mdxv config set font.mono "Maple Mono, monospace"   # a comma names several families
+```
+
+That writes the user-level config at `~/.config/mdxv/config.json` (`$XDG_CONFIG_HOME` is honored).
+You can equally edit the file by hand — comments and trailing commas are fine:
+
+```jsonc
+{
+  "font": {
+    "body": "Iowan Old Style",            // body text
+    "head": "Charter",                    // headings
+    "mono": ["Maple Mono", "monospace"],  // code — an array works too
+    // "sans": "..."                      // UI / toolbar
+  },
+}
+```
+
+Resolution order is always **CLI option > user config > built-in default**:
+
+```bash
+mdxv doc.mdx --font-body "Zapfino"   # overrides the config's body for this run
+```
+
+Four things worth knowing:
+
+- **`config set` never guesses.** It merges into what is already there, keeping your other settings
+  and any keys it does not know. If the existing file cannot be understood — invalid JSON, a
+  non-object at the top level — it refuses to write and tells you, rather than overwriting content
+  it cannot read. Rewriting a commented file does drop the comments, and it says so.
+- **It prepends, it does not replace.** Your font goes *ahead* of the built-in chain, so missing
+  glyphs fall through to the next family. A Latin-only font therefore takes over Latin and digits
+  while CJK still falls back to the embedded Source Serif 4 and the system serif — you never have to
+  spell out a whole fallback chain yourself.
+- **Both `mdxv` and `mdxx` honor the config**, so the preview shows the fonts the export will use.
+  But the export **records font names only and embeds no font files**: the artifact stays free of
+  external links, and a recipient without that font falls back down the chain. Identical glyphs for
+  everyone would require embedding the font file (licensing and size implications; not supported).
+- **A broken config never blocks a run.** A missing file is the normal case; an unreadable file,
+  invalid JSON, a wrong field type, or an illegal font name each print one `Warning:` line to stderr
+  and fall back to the built-in defaults. Font names allow only letters, digits, spaces and
+  `. _ + -`; if any name in an entry is illegal the **whole** entry falls back rather than partly
+  applying.
 
 ## Localized document variants
 
@@ -171,8 +222,8 @@ both preview and export. Only the copyright year (`© <year>`) is taken from the
 ```
 bin/          mdxv.mjs (preview) · mdxx.mjs (export)
 src/
-  cli/        input resolution · Vite config · virtual-module plugin ·
-              CLI language · localized-doc families · terminal output
+  cli/        input resolution · Vite config · virtual-module plugin · CLI language ·
+              localized-doc families · user-level config (fonts) · terminal output
   mdx/        compile plugin list · three-lane diagram rehype plugin
   i18n/       supported locales · message catalog (product strings only)
   app/        React app: Layout · component library · theme.css ·

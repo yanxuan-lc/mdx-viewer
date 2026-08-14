@@ -13,6 +13,43 @@ goes to) and the author surface (components, component props, frontmatter fields
 pixels are not a contract: a fix to make invisible text visible necessarily changes them, and
 such changes are called out per release instead.
 
+## [Unreleased]
+
+### Added
+
+- **A user-level config file, and custom fonts as its first setting.** `~/.config/mdxv/config.json`
+  (`$XDG_CONFIG_HOME` honored when absolute; comments and trailing commas tolerated) now sets the
+  four font families — `font.sans`, `font.head`, `font.body`, `font.mono` — as a font name or an
+  array of them. Matching `--font-sans|head|body|mono` options land on both `mdxv` and `mdxx`.
+  Resolution order is fixed for every setting the file will ever carry: **CLI option > user config >
+  built-in default**.
+
+  Your families are *prepended* to the built-in chain rather than replacing it, so a Latin-only
+  face takes over Latin and digits while CJK still falls through to the embedded Source Serif 4 and
+  the system serif — no hand-written fallback chain. Both commands honor the file, so a preview
+  shows what the export will use; the export records font **names** only and embeds no font files,
+  keeping artifacts free of external links (a recipient without the font falls back down the chain).
+  `mdxv --check` deliberately ignores the config, since fonts cannot affect whether a document
+  compiles.
+
+  A broken config never blocks a run: a missing file is silent, while an unreadable file, invalid
+  JSON, a wrong field type, or an illegal font name each print one `Warning:` line to stderr and
+  fall back to the built-in defaults. Font names admit only letters, digits, spaces and `. _ + -`;
+  because these values are interpolated into a `<style>` block that ships inside exported HTML, one
+  illegal name rejects its **whole** entry rather than partly applying.
+
+- **`mdxv config set <key> <value>` writes that config, and is the only thing that creates it.**
+  `mdxv config set font.body "Iowan Old Style"` creates the file and its directory on first use, so
+  nobody has to hand-roll a JSON file to change a font; a comma-separated value names several
+  families. It merges rather than replaces — your other settings, and any key it does not recognize,
+  survive untouched.
+
+  Where the read side degrades, the write side refuses: a config that cannot be parsed, or that
+  holds a non-object at its top level or at `font`, is left **byte-identical** and the command exits
+  1, because a rewrite that guesses is a rewrite that deletes someone's file. Rewriting a config
+  that carries comments succeeds but warns that JSON cannot keep them. The write itself goes through
+  a temporary file and a rename, so an interrupted run never leaves half a config behind.
+
 ## [0.3.1] — 2026-08-12
 
 ### Fixed

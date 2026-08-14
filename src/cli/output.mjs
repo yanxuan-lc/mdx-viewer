@@ -1,5 +1,6 @@
 import { relative } from "node:path";
 import { t } from "../i18n/locale.mjs";
+import { CONFIG_KEYS } from "./user-config.mjs";
 
 /**
  * Decide whether terminal presentation may include ANSI styling.
@@ -39,12 +40,22 @@ export function formatHelp({ command, locale }) {
     ["-h, --help", t(locale, "cli.helpHelp")],
     ["-v, --version", t(locale, "cli.helpVersion")],
     ["--lang <locale>", t(locale, "cli.optionLanguage")],
+    // 四个 role 共用一行：逐个列开会把 help 撑长一倍，而它们的语义完全一致。
+    ["--font-<sans|head|body|mono> <families>", t(locale, "cli.optionFont")],
     ...(isPreview ? [["--port <port>", t(locale, "cli.optionPort")], ["--host", t(locale, "cli.optionHost")], ["--no-open", t(locale, "cli.optionOpen")], ["--check", t(locale, "cli.optionCheck")]] : []),
   ];
 
   const syntax = isPreview ? "[OPTIONS] <file|dir|demo>" : "[OPTIONS] <file> [output]";
-  const notes = isPreview ? `\n\nNotes:\n  ${t(locale, "cli.checkBoundaryNote")}` : "";
-  return `Usage:\n  ${command} ${syntax}\n\nArguments:\n${formatRows(argumentRows)}\n\nOptions:\n${formatRows(optionRows)}${notes}`;
+  // 第二条 usage 行而不是一个 `Commands:` 段：本项目自渲染 help，S1 明确守着「不出现
+  // CAC 那套 Commands 段」，而 config 只有一个子命令，单独开一段也不划算。
+  const usage = isPreview
+    ? `Usage:\n  ${command} ${syntax}\n  ${command} config set <key> <value>`
+    : `Usage:\n  ${command} ${syntax}`;
+  const noteLines = isPreview
+    ? [t(locale, "cli.checkBoundaryNote"), t(locale, "cli.configNote", { allowed: CONFIG_KEYS.join(", ") })]
+    : [];
+  const notes = noteLines.length ? `\n\nNotes:\n${noteLines.map((note) => `  ${note}`).join("\n")}` : "";
+  return `${usage}\n\nArguments:\n${formatRows(argumentRows)}\n\nOptions:\n${formatRows(optionRows)}${notes}`;
 }
 
 /**
@@ -56,6 +67,19 @@ export function formatError({ locale, message, parserError, color = false }) {
   const detail = parserError ? formatParserMessage(parserError, locale) : message;
   const label = colorize(t(locale, "cli.errorLabel"), "31", color);
   return `${label}: ${detail}`;
+}
+
+/**
+ * Render one localized, non-fatal degradation notice — today only from the user-level
+ * config (`src/cli/user-config.mjs`), which never fails the run. Deliberately shares no
+ * code path with `formatError`: a `Warning:` line means the command carried on with
+ * built-in defaults, and must not be greppable as an error.
+ * @param {{locale: "zh-CN" | "en-US", warning: {key: string, params?: Record<string, unknown>}, color?: boolean}} options warning context
+ * @returns {string} user-facing notice
+ */
+export function formatWarning({ locale, warning, color = false }) {
+  const label = colorize(t(locale, "cli.warningLabel"), "33", color);
+  return `${label}: ${t(locale, warning.key, warning.params)}`;
 }
 
 /**
@@ -87,6 +111,71 @@ export function formatExportSuccess({ locale, version, source, output, size, col
     [t(locale, "cli.fileSizeLabel"), size],
   ];
   return `${formatSuccessHeading(t(locale, "cli.exportReady"), color)}\n${formatStatusRows(rows, color)}\n\n  ${t(locale, "cli.openFileHint")}`;
+}
+
+/**
+ * Render the available-settings block, grouped by the key's own prefix so a new group
+ * shows up here without editing this function — the labels come from the catalog, and
+ * `test/user-config.test.mjs` pins that every key in CONFIG_KEYS has one in both locales.
+ * @param {{locale: "zh-CN" | "en-US"}} options presentation context
+ * @returns {string} indented, uncoloured block; no trailing newline
+ */
+export function formatConfigKeys({ locale }) {
+  /** @type {Map<string, string[]>} */
+  const groups = new Map();
+  for (const key of CONFIG_KEYS) {
+    const [group] = key.split(".");
+    if (!groups.has(group)) groups.set(group, []);
+    groups.get(group).push(key);
+  }
+  // key 全是 ASCII，padEnd 够用；描述是变宽的 CJK，但它在行尾，不需要对齐。
+  const width = Math.max(...CONFIG_KEYS.map((key) => key.length));
+  return [...groups]
+    .map(([group, keys]) => [
+      `  ${t(locale, `config.group.${group}`)}`,
+      ...keys.map((key) => `    - ${key.padEnd(width)}  ${t(locale, `config.key.${key}`)}`),
+    ].join("\n"))
+    .join("\n");
+}
+
+/**
+ * Render a `config set` failure. An unknown key is the one failure where a sentence is not
+ * enough: what the user typed is wrong and the fix is to pick from a list, so the list comes
+ * with it. Every other failure already says what to do, and stays one line.
+ * @param {{locale: "zh-CN" | "en-US", error: {key: string, params?: Record<string, unknown>}, color?: boolean}} options failure context
+ * @returns {string} user-facing diagnostic
+ */
+export function formatConfigError({ locale, error, color = false }) {
+  const diagnostic = formatError({ locale, message: t(locale, error.key, error.params), color });
+  if (error.key !== "config.setUnknownKey") return diagnostic;
+  return `${diagnostic}\n\n${t(locale, "cli.configAvailable")}\n${formatConfigKeys({ locale })}`;
+}
+
+/**
+ * Render the `config` usage diagnostic — shown when the sub-command is missing or is not
+ * `set`, where the key list is just as much the answer as the syntax line.
+ * @param {{locale: "zh-CN" | "en-US", color?: boolean}} options presentation context
+ * @returns {string} user-facing diagnostic
+ */
+export function formatConfigUsage({ locale, color = false }) {
+  const diagnostic = formatError({ locale, message: t(locale, "cli.configUsage"), color });
+  return `${diagnostic}\n\n${t(locale, "cli.configAvailable")}\n${formatConfigKeys({ locale })}`;
+}
+
+/**
+ * Render the `config set` status panel. Uses a different heading when the file did not
+ * exist before, because「配置已创建」是这条命令唯一会落新文件的时刻，值得说一声。
+ * @param {{locale: "zh-CN" | "en-US", path: string, key: string, value: string, created?: boolean, color?: boolean}} options write outcome
+ * @returns {string} status panel
+ */
+export function formatConfigSuccess({ locale, path, key, value, created = false, color = false }) {
+  const rows = [
+    [t(locale, "cli.configFileLabel"), path],
+    [t(locale, "cli.configKeyLabel"), key],
+    [t(locale, "cli.configValueLabel"), value],
+  ];
+  const heading = t(locale, created ? "cli.configCreated" : "cli.configUpdated");
+  return `${formatSuccessHeading(heading, color)}\n${formatStatusRows(rows, color)}\n\n  ${t(locale, "cli.configApplyHint")}`;
 }
 
 /**

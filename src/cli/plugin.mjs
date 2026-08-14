@@ -16,10 +16,10 @@ const MDX_RE = /\.mdx?$/i;
 
 /**
  * Create the Vite virtual-module and directory-tree plugin for one preview/export invocation.
- * @param {{mode: "file" | "dir", target?: string, root?: string, files?: Array<{abs: string, rel: string, dir: string, familyRel?: string, locale?: "zh-CN" | "en-US"}>, firstDoc?: string, initialLocale?: "zh-CN" | "en-US", localeSource?: "argument" | "environment" | "system" | "fallback"}} options invocation configuration
+ * @param {{mode: "file" | "dir", target?: string, root?: string, files?: Array<{abs: string, rel: string, dir: string, familyRel?: string, locale?: "zh-CN" | "en-US"}>, firstDoc?: string, initialLocale?: "zh-CN" | "en-US", localeSource?: "argument" | "environment" | "system" | "fallback", fontCss?: string}} options invocation configuration
  * @returns {import('vite').Plugin} configured Vite plugin
  */
-export function mdxvPlugin({ mode, target, root, files = [], firstDoc: configuredFirstDoc, initialLocale = "en-US", localeSource = "fallback" }) {
+export function mdxvPlugin({ mode, target, root, files = [], firstDoc: configuredFirstDoc, initialLocale = "en-US", localeSource = "fallback", fontCss = "" }) {
   const firstDoc = mode === "dir" ? configuredFirstDoc ?? files[0]?.abs : target;
   // 目录模式下磁盘才是唯一事实来源：启动时传进来的 files 只是首屏快照。dev 每次请求都重扫，
   // 否则 server 起来之后新增/删除的文档永远进不了抽屉（build 不走 configureServer，仍用快照）。
@@ -34,7 +34,12 @@ export function mdxvPlugin({ mode, target, root, files = [], firstDoc: configure
   return {
     name: "mdxv",
     transformIndexHtml(html) {
-      return html.replace(/<html\s+lang=["'][^"']*["']/, `<html lang="${initialLocale}"`);
+      const localized = html.replace(/<html\s+lang=["'][^"']*["']/, `<html lang="${initialLocale}"`);
+      // 字体走静态 HTML 注入而不是运行时 setProperty：后者要等 JS 执行，首屏会先用默认
+      // 字体画一遍再跳字。内容已在 user-config.mjs 过白名单，且是内联样式，`mdxx` 的
+      // 「零外链」不受影响。
+      if (!fontCss) return localized;
+      return localized.replace("</head>", `  <style data-mdxv-fonts>\n${fontCss}  </style>\n</head>`);
     },
     resolveId(id) {
       if (id === CONFIG_ID) return "\0" + CONFIG_ID;

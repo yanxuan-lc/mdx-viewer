@@ -16,7 +16,8 @@ import { resolveInput, scanTree, pickDefaultDoc } from "../src/cli/resolve.mjs";
 import { checkDocuments } from "../src/cli/compile-check.mjs";
 import { buildConfig } from "../src/cli/vite-config.mjs";
 import { CliArgumentsError, formatCliError, resolveCliArguments } from "../src/cli/language.mjs";
-import { formatCheckLine, formatCheckSummary, formatError, formatHelp, formatPreviewSuccess, isColorEnabled, resolveCheckColors } from "../src/cli/output.mjs";
+import { fontOverridesFromOptions, loadUserConfig, setUserConfigValue } from "../src/cli/user-config.mjs";
+import { formatCheckLine, formatCheckSummary, formatConfigError, formatConfigSuccess, formatConfigUsage, formatError, formatHelp, formatPreviewSuccess, formatWarning, isColorEnabled, resolveCheckColors } from "../src/cli/output.mjs";
 import { t } from "../src/i18n/locale.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -73,6 +74,17 @@ async function main() {
 
   const cli = cac("mdxv");
 
+  // 具名命令优先于默认命令匹配（cac 按 args[0] 比对命令名）。代价是一个目录如果正好
+  // 叫 `config`，`mdxv config` 会被当成配置命令——写全路径 `mdxv ./config` 即可预览它。
+  cli
+    .command("config [action] [key] [value]", t(language.locale, "cli.configDescription"))
+    // cac 按「全局选项 + 已匹配命令的选项」判定未知选项，而 --lang 是逐命令注册的：
+    // 漏掉这行，`mdxv config set … --lang zh-CN` 会被判成「未知选项 --lang」。
+    .option("--lang <locale>", t(language.locale, "cli.optionLanguage"))
+    .action((action, key, value) => {
+      runConfigCommand({ action, key, value, language });
+    });
+
   cli
     .command("[input]", t(language.locale, "cli.viewDescription"))
     .option("--lang <locale>", t(language.locale, "cli.optionLanguage"))
@@ -80,8 +92,14 @@ async function main() {
     .option("--host", t(language.locale, "cli.optionHost"))
     .option("--no-open", t(language.locale, "cli.optionOpen"))
     .option("--check", t(language.locale, "cli.optionCheck"))
+    .option("--font-sans <families>", t(language.locale, "cli.optionFont"))
+    .option("--font-head <families>", t(language.locale, "cli.optionFont"))
+    .option("--font-body <families>", t(language.locale, "cli.optionFont"))
+    .option("--font-mono <families>", t(language.locale, "cli.optionFont"))
     .action(async (input, opts) => {
       if (opts.check) {
+        // --check 不读用户配置：字体只影响呈现，不影响能否编译，而 R5 要求 check 不做
+        // 额外 IO、不落任何文件。
         await runCheck(input, language);
         return;
       }
@@ -114,6 +132,12 @@ async function main() {
       }
       const firstDoc = pickDefaultDoc(files, inp.root, inp.target);
 
+      // CLI 参数 > 用户配置 > 内置默认。配置有问题只告警不中断——预览照常起。
+      const userConfig = loadUserConfig({ overrides: fontOverridesFromOptions(opts) });
+      for (const warning of userConfig.warnings) {
+        console.error(formatWarning({ locale: language.locale, warning, color }));
+      }
+
       const config = buildConfig({
         mode: "dir",
         root: inp.root,
@@ -123,6 +147,7 @@ async function main() {
         firstDoc,
         initialLocale: language.locale,
         localeSource: language.source,
+        fontCss: userConfig.css,
       });
       const server = await createServer({
         ...config,
@@ -151,7 +176,10 @@ async function main() {
     if (parsed.options.version) {
       process.exit(0);
     }
-    const extraArguments = parsed.args.slice(1);
+    // 位置参数的「够用即止」判定按命令而异：默认命令只收 1 个（input），config 收 3 个
+    // （action / key / value）。cac 已把命令名本身从 args 里切掉，所以两处只差 offset。
+    const positionalLimit = cli.matchedCommandName === "config" ? 3 : 1;
+    const extraArguments = parsed.args.slice(positionalLimit);
     if (extraArguments.length) {
       throw new CliArgumentsError(extraArguments);
     }
@@ -163,6 +191,38 @@ async function main() {
     if (checkMode) { process.exitCode = 2; return; }
     process.exit(1);
   }
+}
+
+/**
+ * `mdxv config set <key> <value>`：写用户级配置，文件不存在时连同目录一起创建——
+ * 这是配置文件唯一的初始化入口（预览/导出侧只读，永远不落文件）。
+ * 与预览一致：状态面板走 stderr，用法/写入失败退 1；写入侧「拿不准就不写」的判定
+ * 全在 src/cli/user-config.mjs，这里只负责翻译与呈现。
+ * @param {{action?: string, key?: string, value?: string, language: import("../src/cli/language.mjs").CliLanguage}} options 已解析的子命令入参
+ */
+function runConfigCommand({ action, key, value, language }) {
+  const locale = language.locale;
+  if (action !== "set" || key === undefined || value === undefined) {
+    console.error(formatConfigUsage({ locale, color }));
+    process.exit(1);
+  }
+
+  const result = setUserConfigValue({ key, value });
+  if (!result.ok) {
+    console.error(formatConfigError({ locale, error: result.error, color }));
+    process.exit(1);
+  }
+  for (const warning of result.warnings) {
+    console.error(formatWarning({ locale, warning, color }));
+  }
+  console.error(formatConfigSuccess({
+    locale,
+    path: result.path,
+    key: result.key,
+    value: result.names.join(", "),
+    created: result.created,
+    color,
+  }));
 }
 
 /**

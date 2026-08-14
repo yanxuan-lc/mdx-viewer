@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { formatExportSuccess, formatHelp, formatPreviewSuccess, isColorEnabled } from "../src/cli/output.mjs";
@@ -169,4 +169,91 @@ test("S4: color is enabled only for TTY output without NO_COLOR", () => {
   assert.match(colored, /\u001B\[32m✓\u001B\[0m/);
   assert.match(colored, /\u001B\[4;36mhttp:\/\/localhost:4321\/\u001B\[0m/);
   assert.match(colored.replace(/\u001B\[[0-9;]*m/g, ""), /Preview ready/);
+});
+
+/* ---------- S5：`mdxv config set` 的端到端契约（进程级，见 bin/mdxv.mjs） ---------- */
+
+/** 在隔离的 XDG_CONFIG_HOME 下跑一次 mdxv，绝不碰跑测者真实的 ~/.config。 */
+function runConfig(args) {
+  const home = mkdtempSync(join(tmpdir(), "mdxv-cli-config-"));
+  try {
+    const result = spawnSync(process.execPath, ["bin/mdxv.mjs", ...args], {
+      encoding: "utf8",
+      timeout: 10_000,
+      env: { ...process.env, XDG_CONFIG_HOME: home, NO_COLOR: "1" },
+    });
+    let written;
+    try {
+      written = readFileSync(join(home, "mdxv", "config.json"), "utf8");
+    } catch { written = undefined; }
+    return { ...result, written };
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+}
+
+test("S5: config set creates the file and reports on stderr, keeping stdout clean", () => {
+  const result = runConfig(["config", "set", "font.body", "ChillHuoSong_F"]);
+
+  assert.equal(result.status, 0);
+  assert.deepEqual(JSON.parse(result.written), { font: { body: "ChillHuoSong_F" } });
+  // 状态面板与预览/导出一致走 stderr；stdout 留给可被管道消费的东西（今天只有 --check）。
+  assert.equal(result.stdout, "");
+  assert.match(result.stderr, /Config created/);
+});
+
+test("S5: config set honors --lang, which is registered per command in CAC", () => {
+  // 回归：--lang 只挂在默认命令上时，`config set … --lang` 会被判成「未知选项」。
+  const result = runConfig(["config", "set", "font.body", "霞鹜文楷", "--lang", "zh-CN"]);
+
+  assert.equal(result.status, 0);
+  assert.equal(JSON.parse(result.written).font.body, "霞鹜文楷");
+  assert.match(result.stderr, /配置已创建/);
+  assert.doesNotMatch(result.stderr, /Unknown option|未知选项/);
+});
+
+test("S5: a rejected assignment exits 1 and leaves no file behind", () => {
+  for (const args of [
+    ["config", "set", "font.title", "X"],
+    ["config", "set", "font.body", 'Evil"; } body {'],
+    ["config", "set", "font.body"],
+    ["config"],
+    ["config", "get", "font.body"],
+  ]) {
+    const result = runConfig(args);
+    assert.equal(result.status, 1, args.join(" "));
+    assert.match(result.stderr, /^\S+: \S/u, args.join(" "));
+    assert.equal(result.written, undefined, `${args.join(" ")}：失败的 set 不该落下半个配置`);
+  }
+});
+
+test("S5: an unknown key prints the available list under the diagnostic, not inside it", () => {
+  const result = runConfig(["config", "set", "font.title", "X"]);
+
+  assert.equal(result.status, 1);
+  // 第一行只说「哪里错了」，列表另起一段——挤在一行里时这条报错要横着读到屏幕外。
+  const [first, blank, heading, group, ...items] = result.stderr.trimEnd().split("\n");
+  assert.equal(first, 'Error: Unknown setting "font.title".');
+  assert.equal(blank, "");
+  assert.equal(heading, "Available settings:");
+  assert.equal(group, "  Font");
+  assert.deepEqual(items.map((line) => line.trim().split(/\s{2,}/)[0]), ["- font.sans", "- font.head", "- font.body", "- font.mono"]);
+});
+
+test("S5: config takes three positional arguments, and rejects the fourth", () => {
+  const result = runConfig(["config", "set", "font.body", "A", "B"]);
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Too many arguments: B\./);
+  assert.equal(result.written, undefined);
+});
+
+test("S5: preview help advertises the config command without growing a Commands section", () => {
+  const output = formatHelp({ command: "mdxv", locale: "en-US" });
+
+  assert.match(output, /^Usage:\n  mdxv \[OPTIONS\] <file\|dir\|demo>\n  mdxv config set <key> <value>\n/);
+  assert.doesNotMatch(output, /Commands:/);
+  assert.match(output, /config set writes ~\/\.config\/mdxv\/config\.json/);
+  // 导出端没有这条命令，别把它写进 mdxx 的 help。
+  assert.doesNotMatch(formatHelp({ command: "mdxx", locale: "en-US" }), /config set/);
 });

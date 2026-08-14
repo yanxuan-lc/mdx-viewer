@@ -6,7 +6,7 @@
 
 :root {
   /* 优先视觉更佳的中文字体（兰亭黑），逐级回退到系统优秀字体（苹方 / 思源 / 雅黑） */
-  --font-sans: "Lantinghei SC", "Lantinghei TC", "PingFang SC", "苹方-简",
+  --font-sans-default: "Lantinghei SC", "Lantinghei TC", "PingFang SC", "苹方-简",
     "Hiragino Sans GB", "Source Han Sans SC", "Noto Sans CJK SC",
     "Microsoft YaHei", "微软雅黑", system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -15,11 +15,22 @@
   --cjk-sans: "PingFang SC", "苹方-简", "Lantinghei SC", "Hiragino Sans GB", "Microsoft YaHei", "微软雅黑";
 
   /* 标题 / 正文字体：Source Serif 4（拉丁内嵌，中文走 --cjk-serif 系统兜底） */
-  --font-head: "Source Serif 4 Variable", var(--cjk-serif), Georgia, serif;
-  --font-body: "Source Serif 4 Variable", var(--cjk-serif), Georgia, serif;
+  --font-head-default: "Source Serif 4 Variable", var(--cjk-serif), Georgia, serif;
+  --font-body-default: "Source Serif 4 Variable", var(--cjk-serif), Georgia, serif;
 
-  --font-mono: "Maple Mono NF CN", "Maple Mono", "JetBrains Mono", "SF Mono",
+  --font-mono-default: "Maple Mono NF CN", "Maple Mono", "JetBrains Mono", "SF Mono",
     "Fira Code", ui-monospace, Menlo, Consolas, monospace;
+
+  /* 上面四条 *-default 是**内置默认**那一层。用户级配置（~/.config/mdxv/config.json）
+     与 `--font-<role>` CLI 参数经 `--mv-user-font-<role>` 注入，值形如
+     `"我的字体", var(--font-body-default)`——即把用户字体**前置**到默认链之前，缺字形时
+     自动落回内嵌 / 系统字体。注入方见 src/cli/user-config.mjs 的 fontCss + plugin.mjs。
+     刻意不让注入直接覆盖 `--font-<role>`：那要跟这里抢层叠顺序，而注入的 <style> 与
+     Vite 运行时插入的本文件谁在后随 dev/build 而变，改用另一个变量名就与顺序无关。 */
+  --font-sans: var(--mv-user-font-sans, var(--font-sans-default));
+  --font-head: var(--mv-user-font-head, var(--font-head-default));
+  --font-body: var(--mv-user-font-body, var(--font-body-default));
+  --font-mono: var(--mv-user-font-mono, var(--font-mono-default));
 
   --radius: 12px;
   --radius-sm: 8px;

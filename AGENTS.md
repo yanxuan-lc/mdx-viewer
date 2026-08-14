@@ -57,6 +57,7 @@ src/
     vite-config.mjs 共享 Vite 配置构建器（view 与 build 共用）
     plugin.mjs      Vite 插件：虚拟模块 + 目录 tree 中间件
     language.mjs    CLI 语言判定（--lang > MDXV_LANG > 系统 Locale > 兜底）+ CliLanguageError
+    user-config.mjs 用户级配置（~/.config/mdxv/config.json）：读取侧 + 写入侧（`config set`），目前只承载字体族
     localized-docs.mjs  .zh-CN/.en-US 文件族识别（不依赖 Node，预览客户端复用）
     output.mjs      终端呈现：ANSI 着色判定、help/error 格式化
     compile-check.mjs  --check 的编译校验逻辑（逐篇 compile，不碰流/进程/本地化）
@@ -139,10 +140,40 @@ test / release / maintain 分组。Makefile 是薄封装，底层仍调 `npm` �
 | `mdxv --check <file\|dir\|demo>` | **编译校验**：逐篇编译并报告，不起服务、不写产物。退出码 `0` 全通过 / `1` 至少一篇失败 / `2` 无法执行校验（用法或输入错误、空文档集）。报告走 stdout，`Error:` 走 stderr |
 | `mdxx <file> [out.html]` | 导出自包含 HTML（`npm run build:html -- <file>` 等价） |
 | `mdxx <file> --lang <zh-CN\|en-US>` | 指定导出页面的初始界面语言 |
+| `mdxv\|mdxx <file> --font-<sans\|head\|body\|mono> <families>` | 覆盖字体族（两个命令都支持，见下「用户级配置」） |
+| `mdxv config set <key> <value>` | 写用户级配置（`font.sans\|head\|body\|mono`），文件不存在时连同目录创建；状态面板走 stderr，失败退 `1`。只在 `mdxv` 上 |
 | `mdxv --version` / `--help` | 版本号 / 本地化帮助（两个命令都支持，`src/cli/output.mjs` 渲染） |
 
 > **`mdxv` 行为统一**：无论文件还是目录都以「根目录 + 默认文档」运作（见 `src/cli/resolve.mjs`
 > 的 `resolveInput` / `pickDefaultDoc`）。根目录下多篇时显示左侧导航，仅一篇时不显示。
+
+### 用户级配置
+
+`~/.config/mdxv/config.json`（认 `$XDG_CONFIG_HOME`，仅当它是绝对路径；容忍注释与尾逗号）。
+**取值优先级恒为 `CLI 参数 > 用户配置 > 内置默认`**，所有配置项都按这条走。
+
+目前只承载字体族(`font.sans` / `font.head` / `font.body` / `font.mono`，值为字体名字符串或
+字符串数组)。实现见 `src/cli/user-config.mjs`，两条硬约束写在文件头：
+
+- **配置坏了绝不阻断预览 / 导出**：文件不存在是常态（静默）；读不到、不是 JSON、字段类型不对、
+  字体名非法，都只降级为 `Warning:`（stderr）并回退默认。`loadUserConfig` 从不抛出。
+- **字体名进 CSS 前过白名单**：值最终会被拼进 `<style>` 并随 `mdxx` 产物分发，任何能逃出
+  `font-family` 声明的字符都被拒；一条 role 里只要有一个非法名，**整条**丢弃而不是部分生效。
+
+**写入侧（`mdxv config set`）的信条与读取侧相反：拿不准就不写。** 一次 set 会整文件重写，所以
+已有文件解析不了、顶层不是对象、`font` 不是对象这三种情况一律拒绝写入并保持原文件**一字不动**
+（退 `1`），而不是「重建一个干净的」；其余字段与不认识的 key 一律合并保留。单个字体名存字符串、
+多个存数组，与读取侧接受的两种写法一致。写入走「临时文件 + rename」，中断不会留下半个 JSON。
+重写带注释的配置会成功，但补一条 `Warning:` 说明注释无法保留。这是配置文件**唯一**的创建入口
+——预览 / 导出侧只读，永远不落文件。
+
+用户字体是**前置**到内置链之前，不是替换：`--mv-user-font-<role>` 的值形如
+`"我的字体", var(--font-body-default)`，所以缺字形（典型是拉丁字体没有中文）时自动落回内嵌
+Source Serif 4 与系统兜底。`theme.css` 里 `--font-<role>` 读 `--mv-user-font-<role>`、兜底链名叫
+`--font-<role>-default`——这组跨文件变量名契约由 `test/user-config.test.mjs` 钉住。
+
+`mdxv` 与 `mdxx` 都吃这份配置（双端一致）。**只写字体名、不嵌字体文件**：产物仍零外链，收件人
+没装这款字体时按兜底链回退。`--check` 刻意不读配置——字体不影响能否编译。
 
 ### 测试
 
@@ -159,8 +190,9 @@ devDependency）。两者互不重叠：`npm test` 不跑 e2e，e2e 也不替代
 | `test/mdx-pipeline.test.mjs` | L1 | `src/mdx/plugins.mjs` 编译管线：frontmatter / GFM / 数学 / 高亮 / 图三车道 | 直接调官方 `compile()` 跑 `mdxOptions()` |
 | `test/diagram-theme.test.mjs` | L1 | `src/mdx/diagrams.mjs`：颜色语义化、遮罩/裁剪守卫、缺省色继承 | 全进程内；含多组拼写矩阵，条数由循环生成 |
 | `test/compile-check.test.mjs` | L1 | `src/cli/compile-check.mjs` + `output.mjs` 的 check-* 呈现 | 直接函数调用，**零子进程** |
+| `test/user-config.test.mjs` | L1 | `src/cli/user-config.mjs`：优先级逐 role 判定、JSONC 容错、字体名白名单、与 `theme.css` 的变量名契约；写入侧的合并 / 拒写 / round-trip | 纯函数 + 只读 `theme.css`，写入侧在临时 home 下现建现清；含「每条降级路径的 warning 在两个语料库都取得到词」 |
 | `test/test-lanes.test.mjs` | L1 | 三条车道的依赖表面不变式：车道归属、L1 零 spawn（按传递闭包）、L1 不 import vite、L3 仍会构建、`bin/`+`src/` 无 CJS require 加载 | 只读文件、零 spawn；判据读 import 说明符而非自由文本 |
-| `test/cli-output.test.mjs` | **L2** | `src/cli/output.mjs` 的 CLI 侧：help / 错误 / 状态面板、着色随流 | **spawn 两个 binary**，不跑构建 |
+| `test/cli-output.test.mjs` | **L2** | `src/cli/output.mjs` 的 CLI 侧：help / 错误 / 状态面板、着色随流；`mdxv config set` 的进程级契约（退出码 / 落盘 / 流向） | **spawn 两个 binary**，不跑构建；config 用例在隔离的 `XDG_CONFIG_HOME` 下跑 |
 | `test/cli-language.test.mjs` | **L2** | `--lang` / `MDXV_LANG` / 系统 Locale 的端到端优先级与报错 | **spawn 两个 binary**；含 4 次真实 dev server |
 | `test/compile-check.cli.test.mjs` | **L2** | `mdxv --check` 的黑盒 CLI 契约 S1–S11 / S13 / S15 / S16 / S18 / S19 + `#A1`/`#B5` argv 探测 | 只 spawn `mdxv`，不跑构建 |
 | `test/compile-check.no-build.test.mjs` | **L2** | S12：`--check` 不进构建路径 | 用 `test/fixtures/vite-call-probe` 钉住 |

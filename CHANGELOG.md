@@ -50,6 +50,18 @@ such changes are called out per release instead.
   that carries comments succeeds but warns that JSON cannot keep them. The write itself goes through
   a temporary file and a rename, so an interrupted run never leaves half a config behind.
 
+### Fixed
+
+- **Two `mdxv` instances no longer break each other's pages.** Every process shares one dependency
+  pre-bundling cache (Vite resolves it from the package root, which never varies with the document
+  root), and `react/jsx-dev-runtime` — present only in compiled MDX, which the dependency scanner
+  never crawls — used to be discovered at runtime on the first document open. That discovery
+  rewrote the whole cache directory, deleting chunk files the other instance had already served and
+  leaving its page with a 404 (`The file does not exist at ... which is in the optimize deps
+  directory`). Declaring the runtime up front makes a cold start's dependency set already final, so
+  nothing re-optimizes; pre-bundling output is reproducible, so even simultaneous cold starts write
+  identical filenames.
+
 ## [0.3.1] — 2026-08-12
 
 ### Fixed
